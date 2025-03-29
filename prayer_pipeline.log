@@ -1,0 +1,58 @@
+2025-03-29 17:51:32,525 - INFO - 파이프라인 실행 시작
+2025-03-29 17:51:32,561 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-03-29 17:51:34,229 - ERROR - 파이프라인 실행 중 오류 발생: <HttpError 400 when requesting https://sheets.googleapis.com/v4/spreadsheets/1b9srCYQDZIxofvacfQwTWh3gL5PMkV60pyIjSW0J_yk/values/%EA%B8%B0%EB%8F%84%EC%A0%9C%EB%AA%A9%20%EC%88%98%ED%95%A9%21A%3AZ?alt=json returned "Unable to parse range: 기도제목 수합!A:Z". Details: "Unable to parse range: 기도제목 수합!A:Z">
+2025-03-29 17:53:43,544 - INFO - 파이프라인 실행 시작
+2025-03-29 17:53:43,548 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-03-29 17:53:45,088 - ERROR - 파이프라인 실행 중 오류 발생: <HttpError 400 when requesting https://sheets.googleapis.com/v4/spreadsheets/1b9srCYQDZIxofvacfQwTWh3gL5PMkV60pyIjSW0J_yk/values/25-1%ED%95%99%EA%B8%B0%204%EC%9B%94%20%EB%B3%B5%EC%9D%8C%EC%A0%84%ED%8C%8C%EB%A5%BC%20%EC%9C%84%ED%95%9C%20%EA%B8%B0%EB%8F%84%EC%A0%9C%EB%AA%A9%20%EC%88%98%EC%A7%91%28%EC%9D%91%EB%8B%B5%29%21A%3AZ?alt=json returned "Unable to parse range: 25-1학기 4월 복음전파를 위한 기도제목 수집(응답)!A:Z". Details: "Unable to parse range: 25-1학기 4월 복음전파를 위한 기도제목 수집(응답)!A:Z">
+2025-03-29 17:54:28,238 - INFO - 파이프라인 실행 시작
+2025-03-29 17:54:28,243 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-03-29 17:54:29,929 - ERROR - 파이프라인 실행 중 오류 발생: <HttpError 400 when requesting https://sheets.googleapis.com/v4/spreadsheets/1b9srCYQDZIxofvacfQwTWh3gL5PMkV60pyIjSW0J_yk/values/Prayer_Requests%21A%3AZ?alt=json returned "Unable to parse range: Prayer_Requests!A:Z". Details: "Unable to parse range: Prayer_Requests!A:Z">
+2025-03-29 17:55:06,011 - INFO - 파이프라인 실행 시작
+2025-03-29 17:55:06,014 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-03-29 17:55:07,611 - ERROR - 파이프라인 실행 중 오류 발생: <HttpError 400 when requesting https://sheets.googleapis.com/v4/spreadsheets/1b9srCYQDZIxofvacfQwTWh3gL5PMkV60pyIjSW0J_yk/values/%27Prayer_Requests%27%21A%3AZ?alt=json returned "Unable to parse range: 'Prayer_Requests'!A:Z". Details: "Unable to parse range: 'Prayer_Requests'!A:Z">
+2025-03-29 18:00:43,051 - INFO - 파이프라인 실행 시작
+2025-03-29 18:00:43,055 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-03-29 18:00:44,710 - ERROR - 파이프라인 실행 중 오류 발생: Unknown datetime string format, unable to parse: 2025. 3. 28 오후 11:24:19, at position 0
+2025-03-29 18:01:47,272 - INFO - 파이프라인 실행 시작
+2025-03-29 18:01:47,276 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-03-29 18:01:50,212 - INFO - HTTP Request: PATCH https://api.notion.com/v1/pages/1c50f7e0cd5f8025bb78c5c839f205f0 "HTTP/1.1 200 OK"
+2025-03-29 18:01:51,596 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-03-29 18:01:54,931 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1c50f7e0-cd5f-80cd-bb4c-c3b8687b2233 "HTTP/1.1 200 OK"
+2025-03-29 18:01:55,111 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 400 Bad Request"
+2025-03-29 18:01:55,111 - ERROR - 파이프라인 실행 중 오류 발생: body failed validation. Fix one:
+body.children[3].embed should be defined, instead was `undefined`.
+body.children[3].bookmark should be defined, instead was `undefined`.
+body.children[3].image should be defined, instead was `undefined`.
+body.children[3].video should be defined, instead was `undefined`.
+body.children[3].pdf should be defined, instead was `undefined`.
+body.children[3].file should be defined, instead was `undefined`.
+body.children[3].audio should be defined, instead was `undefined`.
+body.children[3].code should be defined, instead was `undefined`.
+body.children[3].equation should be defined, instead was `undefined`.
+body.children[3].divider should be defined, instead was `undefined`.
+body.children[3].breadcrumb should be defined, instead was `undefined`.
+body.children[3].table_of_contents should be defined, instead was `undefined`.
+body.children[3].link_to_page should be defined, instead was `undefined`.
+body.children[3].table_row should be defined, instead was `undefined`.
+body.children[3].ai_block should be defined, instead was `undefined`.
+body.children[3].table should be defined, instead was `undefined`.
+body.children[3].column_list should be defined, instead was `undefined`.
+body.children[3].column should be defined, instead was `undefined`.
+body.children[3].heading_1 should be defined, instead was `undefined`.
+body.children[3].heading_2 should be defined, instead was `undefined`.
+body.children[3].heading_3 should be defined, instead was `undefined`.
+body.children[3].paragraph should be defined, instead was `undefined`.
+body.children[3].bulleted_list_item should be defined, instead was `undefined`.
+body.children[3].numbered_list_item should be defined, instead was `undefined`.
+body.children[3].quote should be defined, instead was `undefined`.
+body.children[3].to_do should be defined, instead was `undefined`.
+body.children[3].toggle should be defined, instead was `undefined`.
+body.children[3].template should be defined, instead was `undefined`.
+body.children[3].callout should be defined, instead was `undefined`.
+body.children[3].synced_block should be defined, instead was `undefined`.
+2025-03-29 18:05:48,562 - INFO - 파이프라인 실행 시작
+2025-03-29 18:05:48,566 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-03-29 18:05:51,540 - INFO - HTTP Request: PATCH https://api.notion.com/v1/pages/1c50f7e0cd5f8025bb78c5c839f205f0 "HTTP/1.1 200 OK"
+2025-03-29 18:05:51,742 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-03-29 18:05:52,226 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-03-29 18:05:52,227 - INFO - 파이프라인 실행 완료

@@ -39,16 +39,17 @@ def run_pipeline():
         logging.error(f"파이프라인 실행 중 오류 발생: {str(e)}")
 
 def main():
-    # 매일 오전 9시에 실행
-    schedule.every().day.at("09:00").do(run_pipeline)
+    # 매일 오후 10시에 실행
+    schedule.every().day.at("21:58").do(run_pipeline)
     
     # 프로그램 시작 시 한 번 실행
     run_pipeline()
     
     # 스케줄러 실행
+    logging.info("스케줄러가 실행되었습니다. 매일 오후 10시에 자동으로 실행됩니다.")
     while True:
         schedule.run_pending()
         time.sleep(60)
 
 if __name__ == "__main__":
-    main() 
+    main()

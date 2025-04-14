@@ -56,3 +56,174 @@ body.children[3].synced_block should be defined, instead was `undefined`.
 2025-03-29 18:05:51,742 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
 2025-03-29 18:05:52,226 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
 2025-03-29 18:05:52,227 - INFO - 파이프라인 실행 완료
+2025-04-15 02:25:54,269 - INFO - 파이프라인 실행 시작
+2025-04-15 02:25:54,289 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-04-15 02:25:57,672 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:25:58,037 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81a7-b0b3-e767139b2b99 "HTTP/1.1 200 OK"
+2025-04-15 02:26:06,263 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81ab-a3f6-eb8be1e3de8d "HTTP/1.1 200 OK"
+2025-04-15 02:26:07,392 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81f1-b736-d260f6b89eeb "HTTP/1.1 200 OK"
+2025-04-15 02:26:11,706 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81d2-8fa1-c25236765166 "HTTP/1.1 200 OK"
+2025-04-15 02:26:12,241 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8102-93d6-fa2f2ba46435 "HTTP/1.1 200 OK"
+2025-04-15 02:26:13,021 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-814d-b817-e0f264f89113 "HTTP/1.1 200 OK"
+2025-04-15 02:26:14,509 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81af-8c6a-d60e0d593635 "HTTP/1.1 200 OK"
+2025-04-15 02:26:15,700 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-817c-8d4b-d81d566c26ff "HTTP/1.1 200 OK"
+2025-04-15 02:26:16,164 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8145-a647-f974a3fe270a "HTTP/1.1 200 OK"
+2025-04-15 02:26:23,700 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81d6-9368-db11669d7b90 "HTTP/1.1 200 OK"
+2025-04-15 02:26:24,218 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-811a-84b7-f7872515ce12 "HTTP/1.1 200 OK"
+2025-04-15 02:26:25,621 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81e1-ba32-cd4cb3bf160a "HTTP/1.1 200 OK"
+2025-04-15 02:26:25,945 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8120-8598-fd942a1647c5 "HTTP/1.1 200 OK"
+2025-04-15 02:26:26,273 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-813e-b0a6-e402d91e39ed "HTTP/1.1 200 OK"
+2025-04-15 02:26:26,707 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81e6-922d-d0c62211558f "HTTP/1.1 200 OK"
+2025-04-15 02:26:27,872 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81cb-b0a1-ebc884bf6d92 "HTTP/1.1 200 OK"
+2025-04-15 02:26:28,275 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81dd-a2bf-f9b716fc2a40 "HTTP/1.1 200 OK"
+2025-04-15 02:26:28,589 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81d2-b928-d87ea23e261f "HTTP/1.1 200 OK"
+2025-04-15 02:26:28,950 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-814a-a15b-f2b28a10d637 "HTTP/1.1 200 OK"
+2025-04-15 02:26:29,467 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8196-8d76-f0cd6c2a9b60 "HTTP/1.1 200 OK"
+2025-04-15 02:26:30,194 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8112-ac64-c6f4cae23742 "HTTP/1.1 200 OK"
+2025-04-15 02:26:30,502 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8152-8bf9-ce41f74b60e5 "HTTP/1.1 200 OK"
+2025-04-15 02:26:32,856 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81db-b462-f02233bafa28 "HTTP/1.1 200 OK"
+2025-04-15 02:26:33,208 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81c8-b1f7-ceb4a45f898b "HTTP/1.1 200 OK"
+2025-04-15 02:26:35,098 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-813e-aff0-fdc4f1d9af4c "HTTP/1.1 200 OK"
+2025-04-15 02:26:38,891 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81ea-97c8-eb018950aa48 "HTTP/1.1 200 OK"
+2025-04-15 02:26:39,574 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8182-8b3f-f5ca8778530e "HTTP/1.1 200 OK"
+2025-04-15 02:26:40,091 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8175-8dd3-e732b1f9b5e5 "HTTP/1.1 200 OK"
+2025-04-15 02:26:40,794 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81a6-b777-ebd315911e33 "HTTP/1.1 200 OK"
+2025-04-15 02:26:43,485 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81e2-a23d-cc4d3cc73209 "HTTP/1.1 200 OK"
+2025-04-15 02:26:44,016 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81d4-90c8-ed5e3b7c0959 "HTTP/1.1 200 OK"
+2025-04-15 02:26:44,985 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8100-90d2-c63ae5cef779 "HTTP/1.1 200 OK"
+2025-04-15 02:26:45,337 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8184-9e26-c88cb1d7f714 "HTTP/1.1 200 OK"
+2025-04-15 02:26:45,742 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81c8-8626-f9e4ae217d69 "HTTP/1.1 200 OK"
+2025-04-15 02:26:46,116 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8195-99a9-d08b99a95873 "HTTP/1.1 200 OK"
+2025-04-15 02:26:47,304 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81a7-947b-e2ec60c73c46 "HTTP/1.1 200 OK"
+2025-04-15 02:26:47,840 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-816b-ac02-e748b059284b "HTTP/1.1 200 OK"
+2025-04-15 02:26:48,203 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81cb-a36c-fd124a260930 "HTTP/1.1 200 OK"
+2025-04-15 02:26:48,852 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81e1-a1e3-dad42318114d "HTTP/1.1 200 OK"
+2025-04-15 02:26:49,463 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8130-9f87-d1d6b887f1a4 "HTTP/1.1 200 OK"
+2025-04-15 02:26:49,800 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8105-a765-e9f333c69218 "HTTP/1.1 200 OK"
+2025-04-15 02:26:50,098 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8140-a161-f03d2a4e5aca "HTTP/1.1 200 OK"
+2025-04-15 02:26:50,734 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8198-a47c-fe2367efe563 "HTTP/1.1 200 OK"
+2025-04-15 02:26:51,883 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81c7-9a33-e6c75307cc5c "HTTP/1.1 200 OK"
+2025-04-15 02:26:52,329 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81f0-aa60-d9cc9e1cd668 "HTTP/1.1 200 OK"
+2025-04-15 02:26:52,657 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-817b-8eba-c5ad50c4e2ca "HTTP/1.1 200 OK"
+2025-04-15 02:26:53,561 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81b9-9bec-ec927b8d4548 "HTTP/1.1 200 OK"
+2025-04-15 02:26:54,873 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:26:54,874 - INFO - 파이프라인 실행 완료
+2025-04-15 02:36:01,863 - INFO - 파이프라인 실행 시작
+2025-04-15 02:36:01,867 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-04-15 02:36:04,042 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:36:04,567 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8154-8ccc-e46454b59719 "HTTP/1.1 200 OK"
+2025-04-15 02:36:05,181 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8114-b90e-dea926c039fe "HTTP/1.1 200 OK"
+2025-04-15 02:36:05,847 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8196-9923-da13c902ba57 "HTTP/1.1 200 OK"
+2025-04-15 02:36:06,951 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8134-b420-f88a1c972155 "HTTP/1.1 200 OK"
+2025-04-15 02:36:07,304 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8101-ad48-ce0a902627e7 "HTTP/1.1 200 OK"
+2025-04-15 02:36:08,803 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81ec-a811-c19f9afb9cc2 "HTTP/1.1 200 OK"
+2025-04-15 02:36:09,295 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81fd-af21-fbfd9eff911f "HTTP/1.1 200 OK"
+2025-04-15 02:36:15,426 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81da-8755-fd65a8c165cb "HTTP/1.1 200 OK"
+2025-04-15 02:36:15,792 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81c7-866c-dc87f3b2ce1d "HTTP/1.1 200 OK"
+2025-04-15 02:36:16,185 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81e8-808d-e4051b30ffc7 "HTTP/1.1 200 OK"
+2025-04-15 02:36:18,064 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81ce-a43b-c08f90252a41 "HTTP/1.1 200 OK"
+2025-04-15 02:36:18,496 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-810d-a01c-fe0bc22d8978 "HTTP/1.1 200 OK"
+2025-04-15 02:36:19,037 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81b8-8b8e-df6ace66f773 "HTTP/1.1 200 OK"
+2025-04-15 02:36:19,239 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 400 Bad Request"
+2025-04-15 02:36:19,241 - ERROR - 파이프라인 실행 중 오류 발생: body failed validation. Fix one:
+body.children[2].embed should be defined, instead was `undefined`.
+body.children[2].bookmark should be defined, instead was `undefined`.
+body.children[2].image should be defined, instead was `undefined`.
+body.children[2].video should be defined, instead was `undefined`.
+body.children[2].pdf should be defined, instead was `undefined`.
+body.children[2].file should be defined, instead was `undefined`.
+body.children[2].audio should be defined, instead was `undefined`.
+body.children[2].code should be defined, instead was `undefined`.
+body.children[2].equation should be defined, instead was `undefined`.
+body.children[2].divider should be defined, instead was `undefined`.
+body.children[2].breadcrumb should be defined, instead was `undefined`.
+body.children[2].table_of_contents should be defined, instead was `undefined`.
+body.children[2].link_to_page should be defined, instead was `undefined`.
+body.children[2].table_row should be defined, instead was `undefined`.
+body.children[2].ai_block should be defined, instead was `undefined`.
+body.children[2].table should be defined, instead was `undefined`.
+body.children[2].column_list should be defined, instead was `undefined`.
+body.children[2].column should be defined, instead was `undefined`.
+body.children[2].heading_1 should be defined, instead was `undefined`.
+body.children[2].heading_2 should be defined, instead was `undefined`.
+body.children[2].heading_3 should be defined, instead was `undefined`.
+body.children[2].paragraph should be defined, instead was `undefined`.
+body.children[2].bulleted_list_item should be defined, instead was `undefined`.
+body.children[2].numbered_list_item should be defined, instead was `undefined`.
+body.children[2].quote should be defined, instead was `undefined`.
+body.children[2].to_do should be defined, instead was `undefined`.
+body.children[2].toggle should be defined, instead was `undefined`.
+body.children[2].template should be defined, instead was `undefined`.
+body.children[2].callout should be defined, instead was `undefined`.
+body.children[2].synced_block should be defined, instead was `undefined`.
+2025-04-15 02:38:12,869 - INFO - 파이프라인 실행 시작
+2025-04-15 02:38:12,873 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-04-15 02:38:14,534 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:38:15,477 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:38:15,478 - INFO - 파이프라인 실행 완료
+2025-04-15 02:39:01,941 - INFO - 파이프라인 실행 시작
+2025-04-15 02:39:01,945 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-04-15 02:39:06,495 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:39:06,941 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8163-8330-c9fa883fd0bb "HTTP/1.1 200 OK"
+2025-04-15 02:39:09,724 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8186-8ec7-f310e7fc7ed6 "HTTP/1.1 200 OK"
+2025-04-15 02:39:11,300 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8105-99cb-c7b67e2d4c05 "HTTP/1.1 200 OK"
+2025-04-15 02:39:11,750 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8138-b29d-faa44e08ad92 "HTTP/1.1 200 OK"
+2025-04-15 02:39:12,085 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8199-a772-cada4af841b8 "HTTP/1.1 200 OK"
+2025-04-15 02:39:12,482 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81f0-8ad9-cadb0340f0bd "HTTP/1.1 200 OK"
+2025-04-15 02:39:13,649 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-818c-8c85-dfac99be08e8 "HTTP/1.1 200 OK"
+2025-04-15 02:39:20,601 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8119-bb38-fc3f4e69a281 "HTTP/1.1 200 OK"
+2025-04-15 02:39:20,921 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8146-abb0-f8d8f49ab0ef "HTTP/1.1 200 OK"
+2025-04-15 02:39:21,251 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8106-876f-e4d0e3a5f4d7 "HTTP/1.1 200 OK"
+2025-04-15 02:39:21,716 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81a6-bf3c-f9bb7c53d8b0 "HTTP/1.1 200 OK"
+2025-04-15 02:39:22,153 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8184-839d-c43ecfa8a329 "HTTP/1.1 200 OK"
+2025-04-15 02:39:25,329 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:39:25,334 - INFO - 파이프라인 실행 완료
+2025-04-15 02:44:28,355 - INFO - 파이프라인 실행 시작
+2025-04-15 02:44:28,360 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-04-15 02:44:30,490 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:44:30,873 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8191-9619-e1f6f6b757fa "HTTP/1.1 200 OK"
+2025-04-15 02:44:31,327 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8176-af97-c23e5fdf4059 "HTTP/1.1 200 OK"
+2025-04-15 02:44:31,662 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-814e-a2f0-e31f9a663105 "HTTP/1.1 200 OK"
+2025-04-15 02:44:32,031 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8150-a588-d406cb26f110 "HTTP/1.1 200 OK"
+2025-04-15 02:44:33,351 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8170-a873-d1299eceea12 "HTTP/1.1 200 OK"
+2025-04-15 02:44:33,804 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8177-badf-c49147008fe4 "HTTP/1.1 200 OK"
+2025-04-15 02:44:56,449 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-819d-803b-de1db3b4c5fa "HTTP/1.1 200 OK"
+2025-04-15 02:44:57,699 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8163-ba58-c79629005477 "HTTP/1.1 200 OK"
+2025-04-15 02:44:58,071 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81b3-869b-d577af55e941 "HTTP/1.1 200 OK"
+2025-04-15 02:44:58,500 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81e1-a529-d1fb6b991e4a "HTTP/1.1 200 OK"
+2025-04-15 02:44:58,929 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-819d-8042-dcb14a6365de "HTTP/1.1 200 OK"
+2025-04-15 02:44:59,346 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8118-8e35-f455852affb1 "HTTP/1.1 200 OK"
+2025-04-15 02:45:00,468 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:45:00,472 - INFO - 파이프라인 실행 완료
+2025-04-15 02:45:00,474 - INFO - 스케줄러가 실행되었습니다. 매일 오후 10시에 자동으로 실행됩니다.
+2025-04-15 02:53:39,197 - INFO - 파이프라인 실행 시작
+2025-04-15 02:53:39,202 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-04-15 02:53:42,149 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:53:43,744 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8140-a917-e9a29f767aaa "HTTP/1.1 200 OK"
+2025-04-15 02:53:44,235 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8107-8b2e-c031f4d87db3 "HTTP/1.1 200 OK"
+2025-04-15 02:53:44,613 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-815f-9f42-d2121e4f064c "HTTP/1.1 200 OK"
+2025-04-15 02:53:58,446 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8137-9588-fc50a4c7756f "HTTP/1.1 200 OK"
+2025-04-15 02:53:58,900 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8199-9431-fde6280a2a3a "HTTP/1.1 200 OK"
+2025-04-15 02:54:00,027 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-816b-979a-d5b1799a8000 "HTTP/1.1 200 OK"
+2025-04-15 02:54:03,597 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81c0-87b9-ef6aee45bf81 "HTTP/1.1 200 OK"
+2025-04-15 02:54:10,139 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:54:10,645 - INFO - 파이프라인 실행 완료
+2025-04-15 02:54:10,645 - INFO - 스케줄러가 실행되었습니다. 매일 오후 10시에 자동으로 실행됩니다.
+2025-04-15 02:56:48,151 - INFO - 파이프라인 실행 시작
+2025-04-15 02:56:48,161 - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-04-15 02:56:52,104 - INFO - HTTP Request: GET https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:56:54,936 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8135-89fd-fe959d4efd06 "HTTP/1.1 200 OK"
+2025-04-15 02:56:55,579 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81e5-ae86-c6db48f887e3 "HTTP/1.1 200 OK"
+2025-04-15 02:56:57,850 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-814a-9a1f-f5cd1f264171 "HTTP/1.1 200 OK"
+2025-04-15 02:56:58,617 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81af-a8e1-d377130eb0d1 "HTTP/1.1 200 OK"
+2025-04-15 02:56:59,189 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81cd-b566-d45931da8aee "HTTP/1.1 200 OK"
+2025-04-15 02:56:59,823 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8151-a252-e5ee117141b1 "HTTP/1.1 200 OK"
+2025-04-15 02:57:02,697 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8190-9568-cdf327b2f736 "HTTP/1.1 200 OK"
+2025-04-15 02:57:03,049 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8104-a7b8-eab0e6bc8c69 "HTTP/1.1 200 OK"
+2025-04-15 02:57:07,478 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81e4-9bf0-eb6da79852c4 "HTTP/1.1 200 OK"
+2025-04-15 02:57:07,937 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-81fe-b0fd-c735a87e4bbd "HTTP/1.1 200 OK"
+2025-04-15 02:57:08,341 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-8111-9d45-ed0084dc7603 "HTTP/1.1 200 OK"
+2025-04-15 02:57:09,674 - INFO - HTTP Request: DELETE https://api.notion.com/v1/blocks/1d50f7e0-cd5f-814f-888b-e0b9516a8456 "HTTP/1.1 200 OK"
+2025-04-15 02:57:10,767 - INFO - HTTP Request: PATCH https://api.notion.com/v1/blocks/1c50f7e0cd5f8025bb78c5c839f205f0/children "HTTP/1.1 200 OK"
+2025-04-15 02:57:10,771 - INFO - 파이프라인 실행 완료
+2025-04-15 02:57:10,772 - INFO - 스케줄러가 실행되었습니다. 매일 오후 10시에 자동으로 실행됩니다.

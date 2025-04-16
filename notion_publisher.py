@@ -50,6 +50,28 @@ def publish_to_notion(processed_data):
     # 기존 블록 가져오기
     blocks = notion.blocks.children.list(block_id=PAGE_ID)
     
+    # 마지막 업데이트 블록 찾아서 업데이트
+    for block in blocks.get('results', []):
+        if (block['type'] == 'callout' and 
+            any('마지막 업데이트' in text.get('text', {}).get('content', '') 
+                for text in block['callout']['rich_text'])):
+            notion.blocks.update(
+                block_id=block['id'],
+                callout={
+                    "rich_text": [
+                        {
+                            "type": "text",
+                            "text": {
+                                "content": f"마지막 업데이트: {processed_data['last_updated']}"
+                            }
+                        }
+                    ],
+                    "icon": block['callout']['icon'],
+                    "color": block['callout']['color']
+                }
+            )
+            break
+    
     # 담당자별 기도제목 제목 블록의 ID 찾기
     prayer_section_id = None
     for block in blocks.get('results', []):
@@ -67,113 +89,12 @@ def publish_to_notion(processed_data):
                 notion.blocks.delete(block_id=block['id'])
             elif block['id'] == prayer_section_id:
                 section_found = True
-    else:
-        # 제목 블록이 없는 경우 모든 블록 삭제
-        for block in blocks.get('results', []):
-            notion.blocks.delete(block_id=block['id'])
     
-    # 새로운 블록 추가
+    # 새로운 블록 추가 (담당자별 기도제목만)
     new_blocks = []
-    
-    # 마지막 업데이트 시간 추가 (callout 블록 사용)
-    new_blocks.append({
-        "object": "block",
-        "type": "callout",
-        "callout": {
-            "rich_text": [
-                {
-                    "type": "text",
-                    "text": {
-                        "content": f"마지막 업데이트: {processed_data['last_updated']}"
-                    }
-                }
-            ],
-            "icon": {
-                "type": "emoji",
-                "emoji": "🔄"
-            },
-            "color": "gray_background"
-        }
-    })
-    
-    # 구분선
-    new_blocks.append({
-        "object": "block",
-        "type": "divider",
-        "divider": {}
-    })
-    
-    # 공통 기도제목 추가
-    new_blocks.append({
-        "object": "block",
-        "type": "heading_1",
-        "heading_1": {
-            "rich_text": [
-                {
-                    "type": "text",
-                    "text": {
-                        "content": "✝️ 공통 기도제목"
-                    },
-                    "annotations": {
-                        "bold": True,
-                        "color": "purple"
-                    }
-                }
-            ]
-        }
-    })
-    
-    new_blocks.append({
-        "object": "block",
-        "type": "callout",
-        "callout": {
-            "rich_text": [
-                {
-                    "type": "text",
-                    "text": {
-                        "content": COMMON_PRAYERS
-                    }
-                }
-            ],
-            "icon": {
-                "type": "emoji",
-                "emoji": "🕊️"
-            },
-            "color": "blue_background"
-        }
-    })
-    
-    # 구분선
-    new_blocks.append({
-        "object": "block",
-        "type": "divider",
-        "divider": {}
-    })
-    
-    # 담당자별 기도제목 제목이 없는 경우에만 추가
-    if not prayer_section_id:
-        new_blocks.append({
-            "object": "block",
-            "type": "heading_1",
-            "heading_1": {
-                "rich_text": [
-                    {
-                        "type": "text",
-                        "text": {
-                            "content": "📖 담당자별 기도제목"
-                        },
-                        "annotations": {
-                            "bold": True,
-                            "color": "blue"
-                        }
-                    }
-                ]
-            }
-        })
     
     # 각 담당자별 섹션 생성
     for manager, assignees in PRAYER_ASSIGNMENTS.items():
-        # 담당자 토글
         manager_blocks = {
             "object": "block",
             "type": "toggle",
@@ -193,12 +114,10 @@ def publish_to_notion(processed_data):
             }
         }
         
-        # 각 담당자에게 배정된 제출자별 섹션 생성
         for assignee in assignees:
             if assignee in processed_data['prayers_by_requester']:
                 assignee_prayers = processed_data['prayers_by_requester'][assignee]
                 
-                # 제출자 토글
                 assignee_toggle = {
                     "object": "block",
                     "type": "toggle",
@@ -219,7 +138,6 @@ def publish_to_notion(processed_data):
                     }
                 }
                 
-                # 제출자의 기도제목들 추가
                 for prayer in assignee_prayers:
                     assignee_toggle["toggle"]["children"].append({
                         "object": "block",
@@ -246,7 +164,8 @@ def publish_to_notion(processed_data):
         new_blocks.append(manager_blocks)
     
     # 블록 추가
-    notion.blocks.children.append(
-        block_id=PAGE_ID,
-        children=new_blocks
-    )
+    if new_blocks:
+        notion.blocks.children.append(
+            block_id=PAGE_ID,
+            children=new_blocks
+        )

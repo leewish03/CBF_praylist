@@ -10,7 +10,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('prayer_pipeline.log'),
         logging.StreamHandler()
     ]
 )

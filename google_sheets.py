@@ -9,7 +9,7 @@ load_dotenv()
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
-RANGE_NAME = os.getenv('RANGE_NAME', 'Prayer_Requests!A:Z')  # 환경 변수에서 범위 가져오거나 기본값 사용
+RANGE_NAME = os.getenv('RANGE_NAME', 'sheet1!A:Z')  # 새로운 시트명으로 변경
 
 # 로거 설정
 logger = logging.getLogger(__name__)
@@ -63,8 +63,8 @@ def get_prayer_requests():
         # DataFrame 생성
         df = pd.DataFrame(padded_values, columns=headers)
         
-        # 특정 열이 존재하는지 확인
-        required_columns = ['타임스탬프', '이름', '이름(구도자)', '날짜']
+        # 기본 필수 컬럼들 확인 (날짜 관련 제거)
+        required_columns = ['타임스탬프', '이름', '이름(구도자)']
         for col in required_columns:
             if col not in df.columns:
                 logger.warning(f"필수 열 '{col}'이(가) 스프레드시트에 존재하지 않습니다.")

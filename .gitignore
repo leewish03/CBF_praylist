@@ -1,0 +1,38 @@
+# 환경 설정 파일
+.env
+.env.local
+.env.*.local
+
+# Google 서비스 계정 키 파일
+*.json
+cbf-praylist-*.json
+
+# 로그 파일
+*.log
+logs/
+
+# Python 관련
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE 관련
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS 관련
+.DS_Store
+Thumbs.db
+
+# 임시 파일
+*.tmp
+*.temp 

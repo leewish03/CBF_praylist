@@ -4,26 +4,14 @@ import os
 from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import csv
+from config import config, PrayerAssignments
 
 load_dotenv()
 
 NOTION_TOKEN = os.getenv('NOTION_TOKEN')
 PAGE_ID = os.getenv('NOTION_PAGE_ID')
-CALENDAR_DATABASE_ID = os.getenv('NOTION_CALENDAR_DATABASE_ID')  # .env 파일에서 캘린더 데이터베이스 ID를 가져옵니다
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
-SHEET_RANGE = 'Prayer_Requests!A:Z'  # Prayer_Requests 시트의 A부터 Z열까지 읽기
-
-# 담당자별 기도제목 제출자 매핑
-PRAYER_ASSIGNMENTS = {
-    "손승아": ["김세진", "이효연"],
-    "김세진": ["한사라", "김나경"],
-    "한사라": ["김가온", "정예은"],
-    "조용훈": ["박민성", "강성오"],
-    "이소원": ["위수빈", "손승우"],
-    "허성훈": ["이소원", "최예찬"],
-    "박민성": ["박지민", "신정우", "박시온"]
-}
+SHEET_RANGE = 'sheet1!A:Z'  # 새로운 시트명으로 변경
 
 # 공통 기도제목
 COMMON_PRAYERS = """1. 서울CBF의 모든 행사를 하나님께서 주관하여 주시고 하나님의 뜻에 청종함으로 하나님께 쓰임 받는 모임이 되게 하여주소서
@@ -65,10 +53,10 @@ def get_prayer_requests():
     # 헤더 행 가져오기
     headers = values[0]
     
-    # 데이터 행 처리
+    # 데이터 행 처리 - 날짜 필터링 제거
     prayer_requests = []
     for row in values[1:]:  # 헤더 제외
-        if len(row) >= 9 and row[8].strip():  # 날짜 필드(9번째 열)가 있는 경우만 처리
+        if len(row) >= 2:  # 최소한 이름 컬럼이 있으면 처리
             prayer_requests.append({
                 'name': row[1] if len(row) > 1 else '',  # 이름
                 'church': row[2] if len(row) > 2 else '',  # 교회
@@ -76,8 +64,7 @@ def get_prayer_requests():
                 'gender': row[4] if len(row) > 4 else '',  # 성별
                 'age': row[5] if len(row) > 5 else '',  # 나이
                 'relationship': row[6] if len(row) > 6 else '',  # 관계
-                'prayer_content': row[7] if len(row) > 7 else '',  # 기도제목
-                'date': row[8] if len(row) > 8 else ''  # 날짜
+                'prayer_content': row[7] if len(row) > 7 else ''  # 기도제목
             })
     
     return prayer_requests
@@ -85,272 +72,35 @@ def get_prayer_requests():
 def create_notion_client():
     return Client(auth=NOTION_TOKEN)
 
+def create_prayer_content_rich_text(prayer):
+    """기도제목 내용을 Notion rich_text 형식으로 변환 (줄바꿈 보존)"""
+    content_parts = []
+    
+    # 기본 정보 추가
+    content_parts.append({"type": "text", "text": {"content": f"👤 제출자: {prayer['name']}\n"}})
+    content_parts.append({"type": "text", "text": {"content": f"🙏 구도자: {prayer['target_name']} ({prayer['gender']}, {prayer['age']})\n"}})
+    content_parts.append({"type": "text", "text": {"content": f"👥 관계: {prayer['relationship']}\n"}})
+    content_parts.append({"type": "text", "text": {"content": "📝 기도제목:\n"}, "annotations": {"bold": True}})
+    
+    # 기도제목 내용 처리 (줄바꿈 보존)
+    prayer_content = prayer['prayer_content']
+    if prayer_content:
+        # 줄바꿈을 기준으로 나누어서 각각을 별도 텍스트로 처리
+        lines = prayer_content.split('\n')
+        for i, line in enumerate(lines):
+            if line.strip():  # 빈 줄이 아닌 경우
+                content_parts.append({"type": "text", "text": {"content": line}})
+            if i < len(lines) - 1:  # 마지막 줄이 아니면 줄바꿈 추가
+                content_parts.append({"type": "text", "text": {"content": "\n"}})
+    
+    return content_parts
+
 def create_prayer_content(prayer):
+    """기본 기도제목 텍스트 생성 (백업용)"""
     return f"👤 제출자: {prayer['name']}\n" \
            f"🙏 구도자: {prayer['target_name']} ({prayer['gender']}, {prayer['age']})\n" \
            f"👥 관계: {prayer['relationship']}\n" \
            f"📝 기도제목:\n{prayer['prayer_content']}"
-
-def get_database_schema(notion, database_id):
-    """Notion 데이터베이스의 스키마(속성 구조)를 가져옵니다."""
-    try:
-        response = notion.databases.retrieve(database_id=database_id)
-        print(f"데이터베이스 속성 확인: {response['properties'].keys()}")
-        return response['properties']
-    except Exception as e:
-        print(f"데이터베이스 스키마 가져오기 오류: {str(e)}")
-        return None
-
-def create_calendar_event(notion, prayer):
-    """Notion 캘린더에 기도제목 초청 날짜를 추가합니다."""
-    print(f"캘린더 이벤트 생성 시도: {prayer}")
-    
-    # 날짜 필드가 없거나 비어있는 경우 캘린더에 추가하지 않음
-    if not prayer.get('date') or not prayer['date'].strip():
-        print("날짜 정보가 없어 캘린더에 추가하지 않습니다.")
-        return
-    
-    try:
-        # 데이터베이스 스키마 확인
-        schema = get_database_schema(notion, CALENDAR_DATABASE_ID)
-        if not schema:
-            print("데이터베이스 스키마를 가져올 수 없어 캘린더 이벤트를 생성할 수 없습니다.")
-            return
-            
-        # 제목 필드의 속성 이름 찾기
-        title_property_name = None
-        date_property_name = None
-        
-        for prop_name, prop_info in schema.items():
-            if prop_info['type'] == 'title':
-                title_property_name = prop_name
-            elif prop_info['type'] == 'date' and '날짜' in prop_name:
-                date_property_name = prop_name
-                
-        if not title_property_name:
-            print("제목 속성을 찾을 수 없어 캘린더 이벤트를 생성할 수 없습니다.")
-            return
-            
-        if not date_property_name:
-            date_property_name = "날짜"  # 기본값
-            
-        # 날짜 형식 변환
-        date_str = prayer['date'].strip()
-        
-        if '.' in date_str:  # "2025. 5. 14" 형식 처리
-            parts = date_str.replace(' ', '').rstrip('.').split('.')
-            if len(parts) >= 3:
-                year, month, day = map(int, parts[:3])
-                event_date = f"{year}-{month:02d}-{day:02d}"
-        else:
-            # 이미 YYYY-MM-DD 형식인 경우
-            event_date = date_str
-            
-        print(f"변환된 날짜: {event_date}")
-        print(f"사용할 속성 이름 - 제목: {title_property_name}, 날짜: {date_property_name}")
-        
-        # 이벤트 제목 생성
-        event_title = f"{prayer['name']}님이 {prayer['target_name']}님을 초청하기로 한 날"
-        
-        # 캘린더 이벤트 생성
-        event_data = {
-            "parent": {"database_id": CALENDAR_DATABASE_ID},
-            "properties": {
-                title_property_name: {
-                    "title": [
-                        {
-                            "text": {
-                                "content": event_title
-                            }
-                        }
-                    ]
-                }
-            },
-            "children": [
-                {
-                    "object": "block",
-                    "type": "paragraph",
-                    "paragraph": {
-                        "rich_text": [
-                            {
-                                "type": "text",
-                                "text": {
-                                    "content": create_prayer_content(prayer)
-                                }
-                            }
-                        ]
-                    }
-                }
-            ]
-        }
-        
-        # 날짜 속성 추가
-        event_data["properties"][date_property_name] = {
-            "date": {
-                "start": event_date
-            }
-        }
-        
-        response = notion.pages.create(**event_data)
-        print(f"캘린더 이벤트 생성 성공: {response['id']}")
-        
-    except Exception as e:
-        print(f"캘린더 이벤트 생성 중 오류 발생: {str(e)}")
-        print(f"오류 발생한 기도제목 데이터: {prayer}")
-
-def create_calendar_events_with_filter(notion, prayer_requests):
-    """고유 식별자를 사용하여 중복 없이 캘린더 이벤트를 생성합니다."""
-    try:
-        print("새 캘린더 이벤트 생성 시작...")
-        
-        # 스키마 정보 가져오기
-        schema = get_database_schema(notion, CALENDAR_DATABASE_ID)
-        if not schema:
-            print("스키마 정보를 가져올 수 없습니다.")
-            return
-        
-        # 필드 속성 이름 찾기
-        title_property_name = None
-        date_property_name = None
-        tag_property_name = None
-        
-        for prop_name, prop_info in schema.items():
-            if prop_info['type'] == 'title':
-                title_property_name = prop_name
-            elif prop_info['type'] == 'date' and '날짜' in prop_name:
-                date_property_name = prop_name
-            elif prop_info['type'] == 'multi_select' or prop_info['type'] == 'select':
-                tag_property_name = prop_name
-        
-        if not title_property_name:
-            print("제목 속성을 찾을 수 없습니다.")
-            return
-        
-        if not date_property_name:
-            date_property_name = "날짜"  # 기본값
-            
-        # 현재 실행 시간을 배치 ID로 사용
-        batch_id = datetime.now().strftime('%Y%m%d%H%M%S')
-        print(f"현재 배치 ID: {batch_id}")
-        
-        # 먼저 기존 항목들 아카이브
-        try:
-            print("기존 이벤트 아카이브 시작...")
-            response = notion.databases.query(
-                database_id=CALENDAR_DATABASE_ID
-            )
-            
-            old_pages = response.get('results', [])
-            
-            # 추가 페이지가 있으면 계속 조회
-            while response.get('has_more', False):
-                response = notion.databases.query(
-                    database_id=CALENDAR_DATABASE_ID,
-                    start_cursor=response.get('next_cursor')
-                )
-                old_pages.extend(response.get('results', []))
-            
-            # 기존 페이지 아카이브
-            if old_pages:
-                print(f"{len(old_pages)}개의 기존 이벤트 아카이브 예정")
-                archived_count = 0
-                for page in old_pages:
-                    try:
-                        notion.pages.update(page_id=page['id'], archived=True)
-                        archived_count += 1
-                    except Exception as e:
-                        print(f"이벤트 아카이브 중 오류: {str(e)}")
-                
-                print(f"{archived_count}개의 기존 이벤트 아카이브 완료")
-        except Exception as e:
-            print(f"기존 이벤트 아카이브 중 오류: {str(e)}")
-        
-        # 날짜가 있는 기도제목만 필터링
-        calendar_prayers = [prayer for prayer in prayer_requests if prayer.get('date') and prayer['date'].strip()]
-        print(f"캘린더에 추가할 기도제목 수: {len(calendar_prayers)}")
-        
-        # 기도제목을 캘린더에 추가
-        created_count = 0
-        for prayer in calendar_prayers:
-            try:
-                # 날짜 형식 변환
-                date_str = prayer['date'].strip()
-                
-                if '.' in date_str:
-                    parts = date_str.replace(' ', '').rstrip('.').split('.')
-                    if len(parts) >= 3:
-                        year, month, day = map(int, parts[:3])
-                        event_date = f"{year}-{month:02d}-{day:02d}"
-                else:
-                    event_date = date_str
-                
-                # 이벤트 제목 생성 (배치 ID 없음)
-                event_title = f"{prayer['name']}님이 {prayer['target_name']}님을 초청하기로 한 날"
-                
-                # 캘린더 이벤트 생성
-                event_data = {
-                    "parent": {"database_id": CALENDAR_DATABASE_ID},
-                    "properties": {
-                        title_property_name: {
-                            "title": [
-                                {
-                                    "text": {
-                                        "content": event_title
-                                    }
-                                }
-                            ]
-                        },
-                        date_property_name: {
-                            "date": {
-                                "start": event_date
-                            }
-                        }
-                    },
-                    "children": [
-                        {
-                            "object": "block",
-                            "type": "paragraph",
-                            "paragraph": {
-                                "rich_text": [
-                                    {
-                                        "type": "text",
-                                        "text": {
-                                            "content": create_prayer_content(prayer)
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                }
-                
-                # 태그 속성이 있으면 현재 배치 ID 태그 추가
-                if tag_property_name and schema[tag_property_name]['type'] == 'multi_select':
-                    event_data["properties"][tag_property_name] = {
-                        "multi_select": [
-                            {
-                                "name": f"batch_{batch_id}"
-                            }
-                        ]
-                    }
-                elif tag_property_name and schema[tag_property_name]['type'] == 'select':
-                    event_data["properties"][tag_property_name] = {
-                        "select": {
-                            "name": f"batch_{batch_id}"
-                        }
-                    }
-                
-                response = notion.pages.create(**event_data)
-                created_count += 1
-                
-            except Exception as e:
-                print(f"캘린더 이벤트 생성 중 오류: {str(e)}")
-                continue
-        
-        print(f"캘린더에 {created_count}개의 새 이벤트 생성 완료")
-        
-    except Exception as e:
-        print(f"캘린더 이벤트 생성 중 오류: {str(e)}")
 
 def publish_to_notion(processed_data):
     notion = create_notion_client()
@@ -401,8 +151,11 @@ def publish_to_notion(processed_data):
     # 새로운 블록 추가 (담당자별 기도제목만)
     new_blocks = []
     
+    # config.py에서 담당자 매핑 가져오기
+    prayer_assignments = PrayerAssignments.get_assignments()
+    
     # 각 담당자별 섹션 생성
-    for manager, assignees in PRAYER_ASSIGNMENTS.items():
+    for manager, assignees in prayer_assignments.items():
         manager_blocks = {
             "object": "block",
             "type": "toggle",
@@ -447,22 +200,11 @@ def publish_to_notion(processed_data):
                 }
                 
                 for prayer in assignee_prayers:
-                    # 날짜가 있는 경우에만 캘린더에 이벤트 추가 - 주석 처리하여 중복 생성 방지
-                    # if prayer.get('date') and prayer['date'].strip():
-                    #     create_calendar_event(notion, prayer)
-                    
                     assignee_toggle["toggle"]["children"].append({
                         "object": "block",
                         "type": "callout",
                         "callout": {
-                            "rich_text": [
-                                {
-                                    "type": "text",
-                                    "text": {
-                                        "content": create_prayer_content(prayer)
-                                    }
-                                }
-                            ],
+                            "rich_text": create_prayer_content_rich_text(prayer),
                             "icon": {
                                 "type": "emoji",
                                 "emoji": "✨"
@@ -482,113 +224,14 @@ def publish_to_notion(processed_data):
             children=new_blocks
         )
 
-def delete_all_calendar_events(notion, database_id):
-    """캘린더 데이터베이스의 모든 항목을 아카이브합니다."""
-    try:
-        print(f"캘린더 데이터베이스({database_id})의 모든 항목 아카이브 시작...")
-        
-        # 데이터베이스에서 아카이브되지 않은 페이지만 조회
-        response = notion.databases.query(
-            database_id=database_id,
-            filter={
-                "property": "archived",
-                "checkbox": {
-                    "equals": False
-                }
-            }
-        )
-        pages = response.get('results', [])
-        
-        # 추가 페이지가 있으면 계속 조회
-        while response.get('has_more', False):
-            response = notion.databases.query(
-                database_id=database_id,
-                start_cursor=response.get('next_cursor'),
-                filter={
-                    "property": "archived",
-                    "checkbox": {
-                        "equals": False
-                    }
-                }
-            )
-            pages.extend(response.get('results', []))
-        
-        print(f"총 {len(pages)}개의 항목을 아카이브합니다.")
-        
-        # 모든 페이지 아카이브
-        for page in pages:
-            page_id = page['id']
-            try:
-                notion.pages.update(page_id=page_id, archived=True)
-                print(f"페이지 아카이브 완료: {page_id}")
-            except Exception as e:
-                print(f"페이지 아카이브 중 오류 발생: {str(e)} - 페이지 ID: {page_id}")
-        
-        # 아카이브 후 아카이브되지 않은 항목 수 확인
-        response = notion.databases.query(
-            database_id=database_id,
-            filter={
-                "property": "archived",
-                "checkbox": {
-                    "equals": False
-                }
-            }
-        )
-        remaining = len(response.get('results', []))
-        print(f"아카이브 후 남은 항목 수: {remaining}")
-        
-        print("캘린더 데이터베이스 아카이브 완료")
-        return len(pages)
-        
-    except Exception as e:
-        print(f"캘린더 데이터베이스 아카이브 중 오류 발생: {str(e)}")
-        return 0
-
-def process_prayer_requests(notion, prayer_requests):
-    """기도제목을 Notion 데이터베이스에 추가하고 캘린더에 이벤트를 생성합니다."""
-    print(f"처리할 기도제목 수: {len(prayer_requests)}")
-    
-    # 기존 방식의 아카이브 삭제하고 새 방식으로 대체
-    # deleted_count = delete_all_calendar_events(notion, CALENDAR_DATABASE_ID)
-    # print(f"{deleted_count}개의 기존 캘린더 항목을 삭제했습니다.")
-    
-    # 날짜가 있는 기도제목만 필터링
-    calendar_prayers = [prayer for prayer in prayer_requests if prayer.get('date') and prayer['date'].strip()]
-    print(f"캘린더에 추가할 기도제목 수: {len(calendar_prayers)}")
-    
-    # 개별 이벤트 추가 대신 배치 ID를 사용하는 새 함수 사용
-    create_calendar_events_with_filter(notion, prayer_requests)
-    
-    # 이전 방식의 기도제목 추가 코드 주석 처리
-    # for prayer in calendar_prayers:
-    #     try:
-    #         create_calendar_event(notion, prayer)
-    #     except Exception as e:
-    #         print(f"기도제목 처리 중 오류 발생: {str(e)}")
-    #         print(f"오류 발생한 기도제목: {prayer}")
-    #         continue
-
 def main():
     """메인 실행 함수"""
     try:
         # Notion 클라이언트 초기화
         notion = Client(auth=NOTION_TOKEN)
         
-        # 데이터베이스 스키마 확인 및 로깅
-        print("캘린더 데이터베이스 스키마 확인 중...")
-        calendar_schema = get_database_schema(notion, CALENDAR_DATABASE_ID)
-        if calendar_schema:
-            print(f"캘린더 데이터베이스 속성: {list(calendar_schema.keys())}")
-            title_props = [name for name, prop in calendar_schema.items() if prop['type'] == 'title']
-            date_props = [name for name, prop in calendar_schema.items() if prop['type'] == 'date']
-            print(f"제목 속성: {title_props}")
-            print(f"날짜 속성: {date_props}")
-        
         # Google Sheets에서 기도제목 데이터 가져오기
         prayer_requests = get_prayer_requests()
-        
-        # 기도제목 처리
-        process_prayer_requests(notion, prayer_requests)
         
         # 데이터 처리 및 노션 페이지 업데이트
         processed_data = {

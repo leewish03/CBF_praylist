@@ -179,6 +179,23 @@ def publish_to_notion(processed_data):
             if assignee in processed_data['prayers_by_requester']:
                 assignee_prayers = processed_data['prayers_by_requester'][assignee]
                 
+                # 기도제목 분할 로직 (SPLIT_ASSIGNMENTS 확인)
+                if hasattr(PrayerAssignments, 'SPLIT_ASSIGNMENTS') and assignee in PrayerAssignments.SPLIT_ASSIGNMENTS:
+                    split_managers = PrayerAssignments.SPLIT_ASSIGNMENTS[assignee]
+                    if manager in split_managers:
+                        total_items = len(assignee_prayers)
+                        num_splits = len(split_managers)
+                        split_index = split_managers.index(manager)
+                        
+                        # 균등 분할 (나머지는 앞쪽 담당자가 가져감)
+                        base_chunk = total_items // num_splits
+                        remainder = total_items % num_splits
+                        
+                        start_idx = split_index * base_chunk + min(split_index, remainder)
+                        end_idx = start_idx + base_chunk + (1 if split_index < remainder else 0)
+                        
+                        assignee_prayers = assignee_prayers[start_idx:end_idx]
+
                 assignee_toggle = {
                     "object": "block",
                     "type": "toggle",

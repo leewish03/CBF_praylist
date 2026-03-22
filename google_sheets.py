@@ -9,7 +9,7 @@ load_dotenv()
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
-RANGE_NAME = os.getenv('RANGE_NAME', 'sheet1!A:Z')  # 새로운 시트명으로 변경
+RANGE_NAME = os.getenv('RANGE_NAME', "'설문지 응답 시트1'!A:Z")  # 새로운 시트명으로 변경
 
 # 로거 설정
 logger = logging.getLogger(__name__)

@@ -17,7 +17,7 @@ class GoogleSheetsConfig:
     def from_env(cls):
         return cls(
             spreadsheet_id=os.getenv('SPREADSHEET_ID', ''),
-            range_name=os.getenv('RANGE_NAME', 'sheet1!A:Z'),
+            range_name=os.getenv('RANGE_NAME', "'설문지 응답 시트1'!A:Z"),
             service_account_file=os.getenv('SERVICE_ACCOUNT_FILE', 'cbf-praylist-11bbf27f1baa.json')
         )
 

@@ -242,23 +242,6 @@ export default function PrayerDashboard() {
     }
   }, []);
 
-  /** 설정 로드 (/api/config) */
-  const fetchConfig = useCallback(async () => {
-    setIsConfigLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/config`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setConfigData(data);
-      setConfigError(null);
-    } catch (err) {
-      console.error('[PrayerDashboard] config fetch error:', err);
-      setConfigError('설정 데이터를 가져오지 못했습니다.');
-    } finally {
-      setIsConfigLoading(false);
-    }
-  }, []);
-
   /** 로그 스트리밍 조회 (/api/logs) */
   const fetchLogs = useCallback(async () => {
     try {
@@ -273,7 +256,11 @@ export default function PrayerDashboard() {
     }
   }, []);
 
-  /** 수집된 기도제목 조회 (/api/prayers) */
+  /**
+   * 통합 데이터 조회 (/api/prayers)
+   * 기도제목 + 담당자 배정 + 공통기도제목 모두 포함
+   * 5초마다 폴링 → 구글 시트 변경 사항이 최대 5분 내 자동 반영
+   */
   const fetchPrayers = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/prayers`);
@@ -281,11 +268,40 @@ export default function PrayerDashboard() {
       const data = await res.json();
       setPrayersData(data);
       setPrayersError(null);
+      // assignments, common_prayers도 prayersData에 포함됨 → configData 불필요
+      if (data.assignments && Object.keys(data.assignments).length > 0) {
+        setConfigData({
+          common_prayers: { data: data.common_prayers || [], source: data.common_prayers_source },
+          assignments:    { data: data.assignments || {},    source: data.assignments_source },
+        });
+        setIsConfigLoading(false);
+        setConfigError(null);
+      }
     } catch (err) {
       console.error('[PrayerDashboard] prayers fetch error:', err);
       setPrayersError('기도제목 데이터를 가져오지 못했습니다.');
     }
   }, []);
+
+  /**
+   * 구글 시트 강제 새로고침 (/api/refresh)
+   * 관리자가 담당자를 추가한 직후 즉시 반영할 때 사용
+   */
+  const handleForceRefresh = useCallback(async () => {
+    setIsConfigLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/refresh`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // 갱신 후 즉시 재조회
+      await fetchPrayers();
+      setTriggerMsg({ type: 'success', text: '✅ 구글 시트에서 최신 데이터를 불러왔습니다.' });
+    } catch (err) {
+      console.error('[PrayerDashboard] force refresh error:', err);
+      setTriggerMsg({ type: 'error', text: '새로고침 중 오류가 발생했습니다.' });
+    } finally {
+      setIsConfigLoading(false);
+    }
+  }, [fetchPrayers]);
 
   /** 파이프라인 트리거 시작 */
   const handleTrigger = useCallback(async () => {
@@ -339,16 +355,16 @@ export default function PrayerDashboard() {
 
   // ── 생명주기 및 폴링 설정 ──
   useEffect(() => {
+    // 초기 로드
     fetchStatus();
-    fetchConfig();
     fetchLogs();
-    fetchPrayers();
+    fetchPrayers(); // 기도제목 + 담당자 + 공통기도제목 통합 조회
 
     // 3초 간격 상태 조회
     const statusInterval = setInterval(fetchStatus, 3000);
     // 5초 간격 로그 스트리밍
     const logsInterval = setInterval(fetchLogs, 5000);
-    // 10초 간격 기도제목 수집 조회
+    // 10초 간격 기도제목+담당자 통합 조회
     const prayersInterval = setInterval(fetchPrayers, 10000);
 
     return () => {
@@ -356,7 +372,7 @@ export default function PrayerDashboard() {
       clearInterval(logsInterval);
       clearInterval(prayersInterval);
     };
-  }, [fetchStatus, fetchConfig, fetchLogs, fetchPrayers]);
+  }, [fetchStatus, fetchLogs, fetchPrayers]);
 
   // ── 트리거 완료 메시지 5초 자동 소거 ──
   useEffect(() => {
@@ -374,10 +390,11 @@ export default function PrayerDashboard() {
   const notionPageId   = status?.notion_page_id;
   const notionPageUrl  = notionPageId ? `https://notion.so/${notionPageId.replace(/-/g, '')}` : null;
 
-  const commonPrayers  = configData?.common_prayers?.data || [];
-  const prayerSource   = configData?.common_prayers?.source;
-  const assignments    = configData?.assignments?.data || {};
-  const assignSource   = configData?.assignments?.source;
+  // configData는 prayersData에서 파싱된 값 (fetchPrayers 폴링으로 자동 최신화)
+  const commonPrayers  = configData?.common_prayers?.data || prayersData?.common_prayers || [];
+  const prayerSource   = configData?.common_prayers?.source || prayersData?.common_prayers_source;
+  const assignments    = configData?.assignments?.data || prayersData?.assignments || {};
+  const assignSource   = configData?.assignments?.source || prayersData?.assignments_source;
 
   const isAdmin = currentPath === '/admin';
   const showAdminAuth = isAdmin && !isAdminAuthenticated;
@@ -453,6 +470,23 @@ export default function PrayerDashboard() {
 
             {/* 담당자 미배정 제출자 에러 배너 */}
             <AlertBanner unmappedRequesters={unmapped} />
+
+            {/* 구글 시트 즉시 새로고침 버튼 */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+              <button
+                onClick={handleForceRefresh}
+                disabled={isConfigLoading}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '6px 14px', borderRadius: '6px', fontSize: '0.78rem',
+                  fontWeight: '500', cursor: 'pointer', border: `1px solid ${colors.border}`,
+                  background: colors.cardBg, color: colors.textPrimary, transition: 'all 0.2s',
+                  opacity: isConfigLoading ? 0.6 : 1
+                }}
+              >
+                🔄 {isConfigLoading ? '로딩 중...' : '구글 시트 새로고침'}
+              </button>
+            </div>
 
             {/* 실제 수집된 기도제목 뷰어 */}
             <PrayersViewer

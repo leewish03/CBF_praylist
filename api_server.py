@@ -46,52 +46,99 @@ app = FastAPI(
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-# 전역 메모리 캐시 초기값
+# 전역 메모리 캐시 초기값 (기도제목 + 담당자배정 + 공통기도제목 통합)
 prayers_cache = {
     "source": "empty",
     "last_updated": None,
-    "prayers_by_requester": {}
+    "prayers_by_requester": {},
+    "assignments": {},
+    "assignments_source": "empty",
+    "common_prayers": [],
+    "common_prayers_source": "empty",
 }
 
 # 비동기 실행용 스레드 풀
-executor = ThreadPoolExecutor(max_workers=3)
+executor = ThreadPoolExecutor(max_workers=4)
 
 async def load_prayers_to_cache():
-    """구글 시트 또는 로컬 파일에서 데이터를 로드하여 전역 캐시 갱신"""
+    """구글 시트에서 기도제목 + 담당자배정 + 공통기도제목을 통합하여 전역 캐시 갱신"""
     global prayers_cache
     import json
-    
-    # 1. 로컬 파일 캐시 확인 (빠른 부팅용)
+
+    # 1. 빠른 부팅: 로컬 파일에 저장된 이전 캐시로 선(先)로드
     cache_file = 'prayers_data.json'
-    if os.path.exists(cache_file):
+    if os.path.exists(cache_file) and prayers_cache["source"] == "empty":
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             prayers_cache = {
                 "source": "local_cache",
+                "assignments": {},
+                "assignments_source": "empty",
+                "common_prayers": [],
+                "common_prayers_source": "empty",
                 **data
             }
-            logger.info("✅ 전역 메모리 캐시 로드 성공 (로컬 파일 기준)")
+            logger.info("✅ 전역 메모리 캐시 선로드 성공 (로컬 파일 기준)")
         except Exception as e:
-            logger.warning(f"로컬 파일 캐시 로드 실패: {str(e)}")
-            
-    # 2. 구글 스프레드시트 실시간 동기화 (최신 데이터 확보)
+            logger.warning(f"로컬 파일 캐시 선로드 실패: {str(e)}")
+
+    # 2. 구글 시트에서 3종 데이터 동시 로드 (기도제목 / 담당자배정 / 공통기도제목)
     try:
-        from google_sheets import get_prayer_requests
+        from google_sheets import get_prayer_requests, get_assignments_from_sheet, get_common_prayers
         from data_processor import process_prayer_requests
-        
+
         loop = asyncio.get_running_loop()
-        df = await loop.run_in_executor(executor, get_prayer_requests)
-        if df is not None:
-            processed_data = await loop.run_in_executor(executor, process_prayer_requests, df)
-            if processed_data:
-                prayers_cache = {
-                    "source": "memory_sync",
-                    **processed_data
-                }
-                logger.info("✅ 전역 메모리 캐시 동기화 성공 (구글 스프레드시트 기준)")
+
+        # 세 작업을 병렬로 실행
+        df_future = loop.run_in_executor(executor, get_prayer_requests)
+        assign_future = loop.run_in_executor(executor, get_assignments_from_sheet)
+        common_future = loop.run_in_executor(executor, get_common_prayers)
+
+        df, assignments_result, common_prayers_result = await asyncio.gather(
+            df_future, assign_future, common_future,
+            return_exceptions=True
+        )
+
+        # 기도제목 처리
+        processed_data = {}
+        if not isinstance(df, Exception) and df is not None:
+            processed_data = await loop.run_in_executor(executor, process_prayer_requests, df) or {}
+        elif isinstance(df, Exception):
+            logger.error(f"기도제목 로드 오류: {df}")
+
+        # 담당자 배정 처리
+        if isinstance(assignments_result, Exception):
+            logger.error(f"담당자 배정 로드 오류: {assignments_result}")
+            assignments_result = {"data": prayers_cache.get("assignments", {}), "source": "cache_fallback"}
+
+        # 공통 기도제목 처리
+        if isinstance(common_prayers_result, Exception):
+            logger.error(f"공통기도제목 로드 오류: {common_prayers_result}")
+            common_prayers_result = {"data": prayers_cache.get("common_prayers", []), "source": "cache_fallback"}
+
+        prayers_cache = {
+            "source": "memory_sync",
+            "last_updated": processed_data.get("last_updated"),
+            "prayers_by_requester": processed_data.get("prayers_by_requester", {}),
+            # ─ 담당자 배정: 구글 시트에서 항상 최신으로 읽음 ─
+            "assignments": assignments_result.get("data", {}),
+            "assignments_source": assignments_result.get("source", "unknown"),
+            # ─ 공통 기도제목: 구글 시트에서 항상 최신으로 읽음 ─
+            "common_prayers": common_prayers_result.get("data", []),
+            "common_prayers_source": common_prayers_result.get("source", "unknown"),
+        }
+
+        logger.info(
+            f"✅ 전역 캐시 동기화 완료 — "
+            f"기도제목: {len(prayers_cache['prayers_by_requester'])}명, "
+            f"담당자: {len(prayers_cache['assignments'])}명, "
+            f"공통기도제목: {len(prayers_cache['common_prayers'])}개"
+        )
+
     except Exception as e:
-        logger.error(f"구글 시트 실시간 캐시 동기화 실패: {str(e)}")
+        logger.error(f"구글 시트 캐시 동기화 실패: {str(e)}")
+
 
 async def refresh_cache_periodically():
     """주기적으로 (15분마다) 캐시를 갱신하는 백그라운드 태스크"""
@@ -206,54 +253,58 @@ async def trigger_pipeline(background_tasks: BackgroundTasks):
 @app.get("/api/prayers")
 async def get_prayers():
     """
-    메모리에 실시간 캐싱된 기도제목 데이터를 즉시 반환합니다.
-    (0초 로딩 및 영구 보존용)
+    메모리 캐시에서 기도제목 + 담당자배정 + 공통기도제목을 통합하여 반환합니다.
+    캐시는 서버 시작 시 및 5분마다 자동 갱신됩니다.
+    /api/refresh 호출로 즉시 갱신할 수 있습니다.
     """
     global prayers_cache
     return prayers_cache
 
 
 # ============================================================
-# 엔드포인트: GET /api/config
+# 엔드포인트: POST /api/refresh  ← 캐시 즉시 강제 갱신
+# ============================================================
+@app.post("/api/refresh")
+async def force_refresh_cache():
+    """
+    구글 시트에서 모든 데이터(기도제목, 담당자, 공통기도제목)를 즉시 다시 로드합니다.
+    담당자 추가/변경 후 즉시 반영할 때 사용하세요.
+    """
+    logger.info("🔄 캐시 강제 갱신 요청 수신")
+    await load_prayers_to_cache()
+    return {
+        "message": "캐시가 구글 시트 최신 데이터로 갱신되었습니다.",
+        "assignments_count": len(prayers_cache.get("assignments", {})),
+        "common_prayers_count": len(prayers_cache.get("common_prayers", [])),
+        "prayers_count": len(prayers_cache.get("prayers_by_requester", {})),
+        "refreshed_at": datetime.now().isoformat()
+    }
+
+
+# ============================================================
+# 엔드포인트: GET /api/config  (메모리 캐시 기반 → 빠른 응답)
 # ============================================================
 @app.get("/api/config")
 async def get_config():
     """
-    구글 시트에서 공통 기도제목과 담당자 배정 설정을 로드하여 반환합니다.
-    로드 실패 시 fallback 데이터를 반환합니다.
-    
-    Returns:
-        common_prayers: {data: list[str], source: str}
-        assignments: {data: dict[str, list[str]], source: str}
+    메모리 캐시에서 공통 기도제목과 담당자 배정 설정을 반환합니다.
+    캐시는 /api/prayers와 동일하게 5분마다 자동 갱신되며,
+    /api/refresh 로 즉시 갱신할 수 있습니다.
     """
-    try:
-        from google_sheets import get_common_prayers, get_assignments_from_sheet
-        
-        logger.info("구글 시트에서 설정 데이터 로드 중...")
-        
-        common_prayers_result = get_common_prayers()
-        assignments_result = get_assignments_from_sheet()
-        
-        return {
-            "common_prayers": {
-                "data": common_prayers_result["data"],
-                "source": common_prayers_result["source"],
-                "count": len(common_prayers_result["data"])
-            },
-            "assignments": {
-                "data": assignments_result["data"],
-                "source": assignments_result["source"],
-                "count": len(assignments_result["data"])
-            },
-            "loaded_at": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        logger.error(f"설정 데이터 로드 실패: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"설정 데이터 로드 중 오류가 발생했습니다: {str(e)}"
-        )
+    global prayers_cache
+    return {
+        "common_prayers": {
+            "data": prayers_cache.get("common_prayers", []),
+            "source": prayers_cache.get("common_prayers_source", "unknown"),
+            "count": len(prayers_cache.get("common_prayers", []))
+        },
+        "assignments": {
+            "data": prayers_cache.get("assignments", {}),
+            "source": prayers_cache.get("assignments_source", "unknown"),
+            "count": len(prayers_cache.get("assignments", {}))
+        },
+        "loaded_at": datetime.now().isoformat()
+    }
 
 
 # ============================================================
@@ -267,18 +318,24 @@ class AssignmentsUpdate(BaseModel):
 @app.post("/api/config/assignments")
 async def update_assignments(data: AssignmentsUpdate):
     """
-    담당자 배정 설정을 구글 시트에 업데이트합니다.
+    담당자 배정 설정을 구글 시트에 업데이트하고 메모리 캐시도 즉시 갱신합니다.
     """
+    global prayers_cache
     logger.info("담당자 배정 설정 업데이트 요청 수신")
     from google_sheets import update_assignments_in_sheet
-    
+
     success = update_assignments_in_sheet(data.assignments)
     if not success:
         raise HTTPException(
             status_code=500,
             detail="구글 시트 담당자 배정 정보 업데이트에 실패했습니다."
         )
-        
+
+    # 저장 즉시 메모리 캐시도 갱신 (다음 폴링 전에 반영)
+    prayers_cache["assignments"] = data.assignments
+    prayers_cache["assignments_source"] = "google_sheets"
+    logger.info(f"메모리 캐시 담당자 배정 즉시 갱신 완료 ({len(data.assignments)}명)")
+
     return {
         "message": "담당자 배정 정보가 구글 스프레드시트에 성공적으로 저장되었습니다.",
         "assignments": data.assignments

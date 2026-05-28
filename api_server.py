@@ -313,9 +313,9 @@ async def get_logs(limit: int = 50):
 
 
 # ============================================================
-# 루트 헬스체크 (Render.com 서비스 생존 확인용)
+# API 헬스체크 (Render.com 서비스 생존 확인용)
 # ============================================================
-@app.get("/")
+@app.get("/api/health")
 async def health_check():
     """서비스 헬스체크 엔드포인트"""
     return {
@@ -324,6 +324,15 @@ async def health_check():
         "status": "running",
         "timestamp": datetime.now().isoformat()
     }
+
+
+# ── 프론트엔드 정적 파일 마운트 (정적 파일 폴더가 존재하는 경우) ──
+# API 경로(/api) 이외의 모든 경로는 React 정적 파일(static/)을 바라보도록 설정합니다.
+from fastapi.staticfiles import StaticFiles
+
+if os.path.exists("static"):
+    app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
 
 
 # ============================================================

@@ -507,7 +507,7 @@ export default function PrayerDashboard() {
               onManagerClick={setSelectedManager}
               isAdmin={true}
               unmappedRequesters={unmapped}
-              onRefreshConfig={fetchConfig}
+              onRefreshConfig={fetchPrayers}
             />
 
             {/* 실시간 로그 터미널 */}
@@ -531,7 +531,7 @@ export default function PrayerDashboard() {
               onManagerClick={setSelectedManager}
               isAdmin={false}
               unmappedRequesters={unmapped}
-              onRefreshConfig={fetchConfig}
+              onRefreshConfig={fetchPrayers}
             />
 
             {/* 실제 수집된 개별 구도자 기도제목 뷰어 */}

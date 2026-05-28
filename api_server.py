@@ -57,11 +57,15 @@ prayers_cache = {
     "common_prayers_source": "empty",
 }
 
-# 비동기 실행용 스레드 풀
-executor = ThreadPoolExecutor(max_workers=4)
+# 스레드 풀: max_workers=2 (Render 무료 플랜 메모리 한도 내로 최소화)
+executor = ThreadPoolExecutor(max_workers=2)
 
 async def load_prayers_to_cache():
-    """구글 시트에서 기도제목 + 담당자배정 + 공통기도제목을 통합하여 전역 캐시 갱신"""
+    """
+    구글 시트에서 기도제목 + 담당자배정 + 공통기도제목을 순차 로드하여 캐시 갱신.
+    ※ 병렬(asyncio.gather) 대신 순차 실행 → 메모리 최대 사용량 대폭 절감
+    ※ google_sheets.py에서 싱글톤 서비스를 재사용하므로 중복 초기화 없음
+    """
     global prayers_cache
     import json
 
@@ -83,48 +87,43 @@ async def load_prayers_to_cache():
         except Exception as e:
             logger.warning(f"로컬 파일 캐시 선로드 실패: {str(e)}")
 
-    # 2. 구글 시트에서 3종 데이터 동시 로드 (기도제목 / 담당자배정 / 공통기도제목)
+    # 2. 구글 시트에서 3종 데이터를 순차적으로 로드 (메모리 절약을 위해 병렬 ❌)
     try:
         from google_sheets import get_prayer_requests, get_assignments_from_sheet, get_common_prayers
         from data_processor import process_prayer_requests
 
         loop = asyncio.get_running_loop()
 
-        # 세 작업을 병렬로 실행
-        df_future = loop.run_in_executor(executor, get_prayer_requests)
-        assign_future = loop.run_in_executor(executor, get_assignments_from_sheet)
-        common_future = loop.run_in_executor(executor, get_common_prayers)
+        # ── 순차 실행 1: 기도제목 응답 ──
+        try:
+            df = await loop.run_in_executor(executor, get_prayer_requests)
+            processed_data = {}
+            if df is not None:
+                processed_data = await loop.run_in_executor(executor, process_prayer_requests, df) or {}
+        except Exception as e:
+            logger.error(f"기도제목 로드 오류: {e}")
+            processed_data = {}
 
-        df, assignments_result, common_prayers_result = await asyncio.gather(
-            df_future, assign_future, common_future,
-            return_exceptions=True
-        )
-
-        # 기도제목 처리
-        processed_data = {}
-        if not isinstance(df, Exception) and df is not None:
-            processed_data = await loop.run_in_executor(executor, process_prayer_requests, df) or {}
-        elif isinstance(df, Exception):
-            logger.error(f"기도제목 로드 오류: {df}")
-
-        # 담당자 배정 처리
-        if isinstance(assignments_result, Exception):
-            logger.error(f"담당자 배정 로드 오류: {assignments_result}")
+        # ── 순차 실행 2: 담당자 배정 ──
+        try:
+            assignments_result = await loop.run_in_executor(executor, get_assignments_from_sheet)
+        except Exception as e:
+            logger.error(f"담당자 배정 로드 오류: {e}")
             assignments_result = {"data": prayers_cache.get("assignments", {}), "source": "cache_fallback"}
 
-        # 공통 기도제목 처리
-        if isinstance(common_prayers_result, Exception):
-            logger.error(f"공통기도제목 로드 오류: {common_prayers_result}")
+        # ── 순차 실행 3: 공통 기도제목 ──
+        try:
+            common_prayers_result = await loop.run_in_executor(executor, get_common_prayers)
+        except Exception as e:
+            logger.error(f"공통기도제목 로드 오류: {e}")
             common_prayers_result = {"data": prayers_cache.get("common_prayers", []), "source": "cache_fallback"}
 
         prayers_cache = {
             "source": "memory_sync",
             "last_updated": processed_data.get("last_updated"),
             "prayers_by_requester": processed_data.get("prayers_by_requester", {}),
-            # ─ 담당자 배정: 구글 시트에서 항상 최신으로 읽음 ─
             "assignments": assignments_result.get("data", {}),
             "assignments_source": assignments_result.get("source", "unknown"),
-            # ─ 공통 기도제목: 구글 시트에서 항상 최신으로 읽음 ─
             "common_prayers": common_prayers_result.get("data", []),
             "common_prayers_source": common_prayers_result.get("source", "unknown"),
         }
@@ -143,12 +142,13 @@ async def load_prayers_to_cache():
 async def refresh_cache_periodically():
     """주기적으로 (15분마다) 캐시를 갱신하는 백그라운드 태스크"""
     while True:
-        await asyncio.sleep(900)  # 15분 대기
+        await asyncio.sleep(900)  # 15분 (Render 무료 플랜 부하 최소화)
         try:
             logger.info("⏰ 백그라운드 캐시 동기화 루프 시작")
             await load_prayers_to_cache()
         except Exception as e:
             logger.error(f"백그라운드 캐시 동기화 실패: {str(e)}")
+
 
 @app.on_event("startup")
 async def startup_event():

@@ -1,5 +1,5 @@
 @echo off
 git add -A
-git commit -m "fix: assignments now fully dynamic from Google Sheets - no hardcoding"
+git commit -m "fix: OOM - sequential Google Sheets calls + singleton service + cache_discovery=False"
 git push
 del "%~f0"

@@ -22,8 +22,19 @@ ASSIGNMENTS_SHEET = '설정_담당자배정'
 # 로거 설정
 logger = logging.getLogger(__name__)
 
+# ── 싱글톤 서비스 캐시 (메모리 절약 핵심) ──
+_service_instance = None
+
 def get_google_sheets_service():
-    """Google Sheets API 서비스를 초기화합니다."""
+    """
+    Google Sheets API 서비스를 싱글톤으로 반환합니다.
+    최초 1회만 초기화하고 이후 재사용하여 메모리를 절약합니다.
+    cache_discovery=False 로 discovery JSON 캐시 파일 생성을 방지합니다.
+    """
+    global _service_instance
+    if _service_instance is not None:
+        return _service_instance
+
     try:
         # 서비스 계정 키 파일 경로 가져오기
         service_account_file = os.getenv('SERVICE_ACCOUNT_FILE', 'cbf-praylist-11bbf27f1baa.json')
@@ -34,9 +45,10 @@ def get_google_sheets_service():
             scopes=SCOPES
         )
         
-        service = build('sheets', 'v4', credentials=credentials)
-        logger.info("Google Sheets 서비스 초기화 성공")
-        return service
+        # cache_discovery=False: 디스크/메모리 discovery 캐시 비활성화 → 메모리 절약
+        _service_instance = build('sheets', 'v4', credentials=credentials, cache_discovery=False)
+        logger.info("Google Sheets 서비스 초기화 성공 (싱글톤)")
+        return _service_instance
     except Exception as e:
         logger.error(f"Google Sheets 서비스 초기화 실패: {str(e)}")
         raise

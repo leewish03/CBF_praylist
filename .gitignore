@@ -1,0 +1,16 @@
+.env
+*.log
+*.lock
+cbf-praylist-11bbf27f1baa.json
+__pycache__/
+.idea/
+.vscode/
+node_modules/
+dist/
+build/
+debug_*
+scratch_*
+*.html
+*.png
+extracted_notion_content.txt
+

@@ -12,5 +12,6 @@ debug_*
 scratch_*
 notion_html.html
 *.png
+!static/og-image.png
 extracted_notion_content.txt
 

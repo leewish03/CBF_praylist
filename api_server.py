@@ -416,13 +416,18 @@ async def read_index(catchall: str):
     # API 요청 오류 처리
     if catchall.startswith("api"):
         raise HTTPException(status_code=404, detail="API route not found")
-    
-    # index.html 반환
+
+    # ① static/ 폴더에 실제 파일이 있으면 그 파일을 반환 (이미지, 폰트 등)
+    static_file = os.path.join("static", catchall)
+    if catchall and os.path.exists(static_file) and os.path.isfile(static_file):
+        return FileResponse(static_file)
+
+    # ② 그 외 모든 경로 → SPA index.html 반환 (클라이언트 라우팅)
     index_path = os.path.join("static", "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-        
-    raise HTTPException(status_code=404, detail="Static index.html not found")
+
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 

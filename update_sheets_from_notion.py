@@ -12,7 +12,7 @@ SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', 'cbf-praylist-11bbf27f1
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 # 담당자 목록
-MANAGERS = ["박민성", "한사라", "김가온", "김나경", "손승아", "신민석", "이소원", "조용훈"]
+MANAGERS = ["박민성", "이윤희", "김가온", "김나경", "박찬서", "이소원", "조용훈"]
 
 def get_sheets_service():
     if not os.path.exists(SERVICE_ACCOUNT_FILE):
@@ -231,14 +231,25 @@ def main():
         print(f"❌ 텍스트 추출 파일을 찾을 수 없습니다: {notion_file}")
         return
         
-    common_prayers, assignments, prayer_requests = parse_notion_text(notion_file)
+    common_prayers, _, prayer_requests = parse_notion_text(notion_file)
+    
+    # 이미지 기준 최종 확정된 담당자 배정표
+    assignments = {
+        "박민성": ["김선양", "최은", "이윤희", "정윤정"],
+        "이윤희": ["조용훈", "김가온"],
+        "김가온": ["박찬서", "손승아"],
+        "김나경": ["주현서", "박지훈", "박민성"],
+        "박찬서": ["한사라"],
+        "이소원": ["신민석", "김나경", "안소영"],
+        "조용훈": ["이소원", "박찬서"]
+    }
     
     if not common_prayers:
         print("❌ 공통 기도제목 파싱 결과가 비어있습니다. 업데이트를 중단합니다.")
         return
         
     update_sheets(common_prayers, assignments, prayer_requests)
-    print("\n🎉 노션의 기존 기도제목 데이터를 구글 시트 '설문지 응답 시트1'에 완벽히 복구/이관 완료했습니다!")
+    print("\n🎉 노션의 기존 기도제목 데이터와 이미지에 정의된 확정 담당자 배정표를 구글 시트에 이관 완료했습니다!")
 
 if __name__ == "__main__":
     main()

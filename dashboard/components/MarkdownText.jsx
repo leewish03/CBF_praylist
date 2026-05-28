@@ -14,6 +14,15 @@ const Paragraph = styled.p`
   font-size: inherit;
 `;
 
+const Heading3 = styled.h3`
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: hsl(142, 72%, 29%);
+  margin-top: 12px;
+  margin-bottom: 6px;
+  letter-spacing: -0.01e;
+`;
+
 const BulletList = styled.ul`
   margin-left: 18px;
   margin-bottom: 8px;
@@ -39,7 +48,7 @@ const NumberedItem = styled.div`
 const NumberText = styled.span`
   min-width: 18px;
   font-weight: 700;
-  color: hsl(142, 35%, 28%);
+  color: hsl(142, 72%, 29%);
 `;
 
 const NumberContent = styled.span`
@@ -70,12 +79,18 @@ export default function MarkdownText({ text }) {
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
     
-    // 1. 글머리 기호 (-, *, +) 감지
-    if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('+')) {
+    // 1. ## 헤더 감지
+    if (trimmed.startsWith('##')) {
+      flushList(idx);
+      const content = trimmed.substring(2).trim();
+      elements.push(<Heading3 key={idx}>{content}</Heading3>);
+    }
+    // 2. 글머리 기호 (-, *, +) 감지
+    else if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('+')) {
       const content = trimmed.substring(1).trim();
       currentList.push(content);
     } 
-    // 2. 번호 리스트 (1., 2. 등) 감지
+    // 3. 번호 리스트 (1., 2. 등) 감지
     else if (/^\d+\.\s/.test(trimmed)) {
       flushList(idx);
       const match = trimmed.match(/^(\d+)\.\s*(.*)/);
@@ -88,7 +103,7 @@ export default function MarkdownText({ text }) {
         );
       }
     } 
-    // 3. 일반 텍스트
+    // 4. 일반 텍스트
     else {
       flushList(idx);
       if (trimmed) {

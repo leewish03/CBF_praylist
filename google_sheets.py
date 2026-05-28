@@ -262,3 +262,36 @@ def _get_assignments_fallback() -> dict:
             'data': {},
             'source': 'fallback_default'
         }
+
+def update_assignments_in_sheet(assignments: dict) -> bool:
+    """
+    구글 시트의 '설정_담당자배정' 시트 내용을 주어진 딕셔너리로 업데이트합니다.
+    """
+    try:
+        service = get_google_sheets_service()
+        
+        # 1. 기존 데이터 초기화 (A:B 범위)
+        service.spreadsheets().values().clear(
+            spreadsheetId=SPREADSHEET_ID,
+            range=f"'{ASSIGNMENTS_SHEET}'!A:B"
+        ).execute()
+        
+        # 2. 업데이트할 행 데이터 만들기
+        rows = [["담당자", "제출자이름"]]
+        for manager, assignees in assignments.items():
+            assignees_str = ", ".join(assignees)
+            rows.append([manager, assignees_str])
+            
+        # 3. 데이터 쓰기
+        service.spreadsheets().values().update(
+            spreadsheetId=SPREADSHEET_ID,
+            range=f"'{ASSIGNMENTS_SHEET}'!A1",
+            valueInputOption="RAW",
+            body={"values": rows}
+        ).execute()
+        
+        logger.info(f"구글 시트의 '설정_담당자배정' 시트 업데이트 완료 ({len(assignments)}개 담당자)")
+        return True
+    except Exception as e:
+        logger.error(f"구글 시트 담당자 배정 시트 업데이트 실패: {str(e)}")
+        return False

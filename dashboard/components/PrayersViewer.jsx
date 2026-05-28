@@ -124,6 +124,7 @@ const RequesterInfo = styled.div`
   gap: 8px;
   width: 100%;
   justify-content: space-between;
+  flex-wrap: wrap;
 `;
 
 const RequesterName = styled.span`

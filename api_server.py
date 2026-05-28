@@ -267,6 +267,35 @@ async def get_config():
 
 
 # ============================================================
+# 엔드포인트: POST /api/config/assignments
+# ============================================================
+from pydantic import BaseModel
+
+class AssignmentsUpdate(BaseModel):
+    assignments: dict[str, list[str]]
+
+@app.post("/api/config/assignments")
+async def update_assignments(data: AssignmentsUpdate):
+    """
+    담당자 배정 설정을 구글 시트에 업데이트합니다.
+    """
+    logger.info("담당자 배정 설정 업데이트 요청 수신")
+    from google_sheets import update_assignments_in_sheet
+    
+    success = update_assignments_in_sheet(data.assignments)
+    if not success:
+        raise HTTPException(
+            status_code=500,
+            detail="구글 시트 담당자 배정 정보 업데이트에 실패했습니다."
+        )
+        
+    return {
+        "message": "담당자 배정 정보가 구글 스프레드시트에 성공적으로 저장되었습니다.",
+        "assignments": data.assignments
+    }
+
+
+# ============================================================
 # 엔드포인트: GET /api/logs
 # ============================================================
 @app.get("/api/logs")

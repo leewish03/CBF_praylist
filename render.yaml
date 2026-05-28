@@ -2,7 +2,7 @@ services:
   - type: web
     name: cbf-prayer-api
     env: python
-    buildCommand: pip install -r requirements.txt && cd dashboard && npm install && npm run build
+    buildCommand: pip install -r requirements.txt
     # GOOGLE_SERVICE_ACCOUNT_JSON 환경변수에서 JSON 파일을 재생성 후 서버 시작
     startCommand: bash -c 'python -c "import os; j=os.environ.get(\"GOOGLE_SERVICE_ACCOUNT_JSON\",\"\"); open(\"cbf-praylist-11bbf27f1baa.json\",\"w\").write(j) if j else None" && python api_server.py'
     envVars:

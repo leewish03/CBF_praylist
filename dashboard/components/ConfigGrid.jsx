@@ -37,8 +37,8 @@ const Grid = styled.div`
 const Card = styled.div`
   background: ${colors.cardBg};
   border: 1px solid ${colors.border};
-  border-radius: 14px;
-  box-shadow: 0 2px 12px hsla(0, 0%, 0%, 0.06);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   animation: ${fadeIn} 0.35s ease;
 `;
@@ -49,12 +49,13 @@ const CardHeader = styled.div`
   gap: 10px;
   padding: 16px 20px;
   border-bottom: 1px solid ${colors.border};
-  background: ${colors.primaryLight};
+  background: transparent;
 
   h3 {
-    font-size: 0.95rem;
+    font-size: 0.88rem;
     font-weight: 600;
-    color: ${colors.primary};
+    color: ${colors.textPrimary};
+    letter-spacing: -0.01em;
   }
 `;
 
@@ -67,12 +68,12 @@ const SourceTag = styled.span`
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.72rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
   font-weight: 500;
   background: ${({ isSheet }) => isSheet ? colors.successLight : colors.warningLight};
   color:      ${({ isSheet }) => isSheet ? colors.success : colors.warning};
-  border: 1px solid ${({ isSheet }) => isSheet ? colors.success + '44' : colors.warning + '44'};
+  border: 1px solid ${({ isSheet }) => isSheet ? colors.success + '22' : colors.warning + '22'};
   margin-left: auto;
 `;
 
@@ -88,27 +89,26 @@ const PrayerList = styled.ol`
 const PrayerItem = styled.li`
   display: flex;
   gap: 10px;
-  padding: 10px 12px;
-  background: ${colors.primaryLight};
-  border-radius: 8px;
-  border-left: 3px solid ${colors.primary};
+  padding: 12px 14px;
+  background: ${colors.bg};
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
   animation: ${slideIn} 0.3s ease both;
   animation-delay: ${({ idx }) => idx * 0.05}s;
 `;
 
 const PrayerNum = styled.span`
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: ${colors.primary};
   min-width: 18px;
   padding-top: 1px;
 `;
 
-const PrayerText = styled.p`
+const PrayerText = styled.div`
   font-size: 0.82rem;
   color: ${colors.textPrimary};
-  line-height: 1.65;
-  white-space: pre-line;
+  line-height: 1.6;
 `;
 
 const AssignmentTable = styled.div`
@@ -122,32 +122,35 @@ const AssignmentRow = styled.div`
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
-  background: ${colors.bg};
+  background: ${colors.cardBg};
   border: 1px solid ${colors.border};
-  border-radius: 8px;
+  border-radius: 6px;
   animation: ${slideIn} 0.3s ease both;
   animation-delay: ${({ idx }) => idx * 0.04}s;
-  transition: box-shadow 0.2s;
+  transition: all 0.2s ease;
 
   &:hover {
-    box-shadow: 0 2px 8px hsla(0,0%,0%,0.07);
+    background: ${colors.bg};
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
   }
 `;
 
 const ManagerName = styled.span`
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: ${colors.primary};
   min-width: 60px;
-  padding-top: 2px;
-  cursor: pointer;
   padding: 2px 6px;
   border-radius: 4px;
-  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  background: ${colors.primaryLight};
+  border: 1px solid ${colors.primary}11;
+  text-align: center;
+  transition: all 0.15s;
 
   &:hover {
-    background: ${colors.primaryLight};
-    color: ${colors.primaryDark};
+    background: ${colors.primary};
+    color: #fff;
   }
 `;
 
@@ -155,14 +158,15 @@ const AssigneeTags = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  padding-top: 1px;
 `;
 
 const AssigneeTag = styled.span`
   padding: 2px 8px;
-  background: ${colors.primaryLight};
-  color: ${colors.primaryDark};
-  border-radius: 12px;
-  font-size: 0.75rem;
+  background: ${colors.bg};
+  color: ${colors.textSecondary};
+  border-radius: 4px;
+  font-size: 0.72rem;
   font-weight: 500;
   border: 1px solid ${colors.border};
 `;
@@ -170,23 +174,23 @@ const AssigneeTag = styled.span`
 const SkeletonLine = styled.div`
   height: ${({ h }) => h || '14px'};
   background: linear-gradient(90deg, 
-    hsl(220, 10%, 90%) 25%, 
-    hsl(220, 10%, 95%) 50%, 
-    hsl(220, 10%, 90%) 75%);
+    hsl(240, 5%, 92%) 25%, 
+    hsl(240, 5%, 96%) 50%, 
+    hsl(240, 5%, 92%) 75%);
   background-size: 200% 100%;
-  border-radius: 6px;
+  border-radius: 4px;
   margin-bottom: 8px;
   width: ${({ w }) => w || '100%'};
   animation: ${SkeletonAnim} 1.5s infinite;
 `;
 
 const ErrorMessage = styled.p`
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: ${colors.danger};
   padding: 10px 12px;
   background: ${colors.dangerLight};
-  border-radius: 8px;
-  border: 1px solid ${colors.danger}44;
+  border-radius: 6px;
+  border: 1px solid ${colors.danger}22;
 `;
 
 const EmptyState = styled.div`

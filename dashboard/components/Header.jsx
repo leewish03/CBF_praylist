@@ -1,6 +1,6 @@
 /**
  * Header.jsx
- * 대시보드 타이틀 및 Notion 페이지 바로가기 링크 버튼 컴포넌트
+ * 대시보드 타이틀 및 Notion 페이지 바로가기 링크 버튼 컴포넌트 (Shadcn/ui 스타일 리팩토링)
  */
 
 import React from 'react';
@@ -20,14 +20,14 @@ const HeaderWrapper = styled.header`
   gap: 12px;
   margin-bottom: 24px;
   padding: 20px 24px;
-  background: ${colors.primary};
-  border-radius: 16px;
-  box-shadow: 0 4px 20px hsla(142, 35%, 28%, 0.25);
+  background: ${colors.cardBg};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
   animation: ${fadeIn} 0.4s ease;
 
   @media (max-width: 768px) {
     padding: 16px;
-    border-radius: 12px;
   }
 `;
 
@@ -37,17 +37,25 @@ const HeaderTitle = styled.div`
   gap: 12px;
 `;
 
-const HeaderEmoji = styled.span`
-  font-size: 2rem;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+const HeaderEmoji = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  background: ${colors.primaryLight};
+  font-size: 1.4rem;
+  border: 1px solid ${colors.primary}22;
 `;
 
 const HeaderText = styled.div`
   h1 {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #fff;
-    line-height: 1.3;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: ${colors.textPrimary};
+    line-height: 1.2;
+    letter-spacing: -0.02em;
     
     @media (max-width: 768px) {
       font-size: 1.1rem;
@@ -55,9 +63,10 @@ const HeaderText = styled.div`
   }
   
   p {
-    font-size: 0.8rem;
-    color: hsla(0, 0%, 100%, 0.75);
-    margin-top: 2px;
+    font-size: 0.78rem;
+    color: ${colors.textSecondary};
+    margin-top: 4px;
+    letter-spacing: -0.01em;
   }
 `;
 
@@ -67,26 +76,57 @@ const ButtonContainer = styled.div`
   flex-wrap: wrap;
 `;
 
+// Shadcn/ui Button Variants 에뮬레이션
 const HeaderButton = styled.a`
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
-  background: hsla(0, 0%, 100%, 0.15);
-  color: #fff;
-  border: 1px solid hsla(0, 0%, 100%, 0.3);
-  border-radius: 8px;
-  font-size: 0.82rem;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
   font-weight: 500;
   text-decoration: none;
-  transition: background 0.2s, border-color 0.2s;
+  transition: all 0.2s ease-in-out;
   cursor: pointer;
   white-space: nowrap;
+  letter-spacing: -0.01em;
 
-  &:hover {
-    background: hsla(0, 0%, 100%, 0.25);
-    border-color: hsla(0, 0%, 100%, 0.5);
-  }
+  /* default / primary variant */
+  ${({ variant }) => variant === 'primary' && `
+    background: ${colors.primary};
+    color: #ffffff;
+    border: 1px solid ${colors.primary};
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+    
+    &:hover {
+      background: ${colors.primaryDark};
+      border-color: ${colors.primaryDark};
+    }
+  `}
+
+  /* outline variant */
+  ${({ variant }) => variant === 'outline' && `
+    background: ${colors.cardBg};
+    color: ${colors.textPrimary};
+    border: 1px solid ${colors.border};
+    
+    &:hover {
+      background: ${colors.bg};
+      color: ${colors.textPrimary};
+    }
+  `}
+
+  /* secondary variant */
+  ${({ variant }) => variant === 'secondary' && `
+    background: ${colors.bg};
+    color: ${colors.textPrimary};
+    border: 1px solid ${colors.border};
+    
+    &:hover {
+      background: ${colors.border};
+    }
+  `}
 `;
 
 export default function Header({ notionPageUrl, isAdmin, onNavigate }) {
@@ -116,6 +156,7 @@ export default function Header({ notionPageUrl, isAdmin, onNavigate }) {
             href={notionPageUrl}
             target="_blank"
             rel="noopener noreferrer"
+            variant="outline"
           >
             📓 Notion 페이지
           </HeaderButton>
@@ -124,14 +165,15 @@ export default function Header({ notionPageUrl, isAdmin, onNavigate }) {
           <HeaderButton
             href="/"
             onClick={(e) => handleNav('/', e)}
-            style={{ background: 'hsla(142, 30%, 45%, 0.4)', borderColor: 'hsla(142, 30%, 45%, 0.6)' }}
+            variant="secondary"
           >
-            🙏 기도팀 화면으로
+            🙏 기도팀 화면
           </HeaderButton>
         ) : (
           <HeaderButton
             href="/admin"
             onClick={(e) => handleNav('/admin', e)}
+            variant="primary"
           >
             ⚙️ 관리자 도구
           </HeaderButton>

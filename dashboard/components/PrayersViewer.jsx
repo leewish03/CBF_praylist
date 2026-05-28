@@ -7,6 +7,7 @@
 import React from 'react';
 import styled, { keyframes } from 'styled-components';
 import colors from '../styles/colors';
+import MarkdownText from './MarkdownText';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(8px); }
@@ -22,12 +23,13 @@ const SectionTitle = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   
   h2 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: ${colors.primary};
+    font-size: 1rem;
+    font-weight: 600;
+    color: ${colors.textPrimary};
+    letter-spacing: -0.01em;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -35,48 +37,49 @@ const SectionTitle = styled.div`
 `;
 
 const UpdateBadge = styled.span`
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   color: ${colors.textSecondary};
   background: ${colors.bg};
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: 4px;
   border: 1px solid ${colors.border};
 `;
 
+// Shadcn/ui TabsList 에뮬레이션
 const FilterTabContainer = styled.div`
   display: flex;
-  gap: 8px;
+  gap: 4px;
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding: 4px;
   margin-bottom: 16px;
-  scrollbar-width: thin;
+  background: ${colors.bg};
+  border-radius: 8px;
+  border: 1px solid ${colors.border};
+  scrollbar-width: none;
   
   &::-webkit-scrollbar {
-    height: 4px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: ${colors.border};
-    border-radius: 4px;
+    display: none;
   }
 `;
 
+// Shadcn/ui TabsTrigger 에뮬레이션
 const TabButton = styled.button`
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  border: 1px solid ${({ active }) => active ? colors.primary : colors.border};
-  background: ${({ active }) => active ? colors.primary : colors.cardBg};
-  color: ${({ active }) => active ? '#fff' : colors.textPrimary};
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  border: none;
+  background: ${({ active }) => active ? colors.cardBg : 'transparent'};
+  color: ${({ active }) => active ? colors.textPrimary : colors.textSecondary};
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s ease;
-  box-shadow: ${({ active }) => active ? '0 2px 6px hsla(142, 35%, 28%, 0.25)' : 'none'};
+  transition: all 0.15s ease-in-out;
+  box-shadow: ${({ active }) => active ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'};
+  letter-spacing: -0.01em;
 
   &:hover {
-    background: ${({ active }) => active ? colors.primaryDark : colors.primaryLight};
-    border-color: ${colors.primary};
-    color: ${({ active }) => active ? '#fff' : colors.primary};
+    color: ${colors.textPrimary};
+    ${({ active }) => !active && `background: hsla(240, 4.8%, 95.9%, 0.5);`}
   }
 `;
 
@@ -90,18 +93,19 @@ const PrayerGrid = styled.div`
   }
 `;
 
+// Shadcn/ui Card 에뮬레이션
 const PrayerCard = styled.div`
   background: ${colors.cardBg};
   border: 1px solid ${colors.border};
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px;
-  box-shadow: 0 2px 8px hsla(0, 0%, 0%, 0.04);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease-in-out;
   animation: ${fadeIn} 0.3s ease both;
   
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px hsla(0, 0%, 0%, 0.08);
+    box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+    border-color: ${colors.primary}33;
   }
 `;
 
@@ -118,21 +122,24 @@ const RequesterInfo = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  justify-content: space-between;
 `;
 
 const RequesterName = styled.span`
-  font-size: 0.88rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 600;
   color: ${colors.textPrimary};
 `;
 
+// Shadcn/ui Badge 에뮬레이션
 const ManagerBadge = styled.span`
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 500;
   background: ${colors.primaryLight};
   color: ${colors.primary};
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: 9999px;
   border: 1px solid ${colors.primary}22;
 `;
 
@@ -140,15 +147,16 @@ const TargetMeta = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: ${colors.textSecondary};
 `;
 
 const MetaTag = styled.span`
   background: ${colors.bg};
   border: 1px solid ${colors.border};
-  padding: 1px 6px;
+  padding: 2px 6px;
   border-radius: 4px;
+  font-size: 0.72rem;
 `;
 
 const TargetInfoSection = styled.div`
@@ -156,8 +164,8 @@ const TargetInfoSection = styled.div`
 `;
 
 const TargetName = styled.h4`
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 600;
   color: ${colors.primaryDark};
   margin-bottom: 6px;
   display: flex;
@@ -165,33 +173,31 @@ const TargetName = styled.h4`
   gap: 6px;
   
   span {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: normal;
     color: ${colors.textSecondary};
   }
 `;
 
 const ContentBox = styled.div`
-  background: ${colors.primaryLight}44;
-  border: 1px solid ${colors.primaryLight};
-  border-radius: 8px;
+  background: ${colors.bg};
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
   padding: 12px;
   font-size: 0.82rem;
   color: ${colors.textPrimary};
   line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-all;
   min-height: 80px;
 `;
 
 const EmptyState = styled.div`
   background: ${colors.cardBg};
   border: 1px dashed ${colors.border};
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 40px 20px;
   text-align: center;
   color: ${colors.textSecondary};
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 `;
 
 export default function PrayersViewer({
@@ -306,7 +312,11 @@ export default function PrayersViewer({
               </TargetInfoSection>
               
               <ContentBox>
-                {prayer.prayer_content || '기도제목 내용이 없습니다.'}
+                {prayer.prayer_content ? (
+                  <MarkdownText text={prayer.prayer_content} />
+                ) : (
+                  '기도제목 내용이 없습니다.'
+                )}
               </ContentBox>
             </PrayerCard>
           ))}

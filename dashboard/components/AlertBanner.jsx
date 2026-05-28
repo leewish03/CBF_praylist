@@ -24,39 +24,50 @@ const AlertBannerWrapper = styled.div`
   gap: 12px;
   padding: 14px 18px;
   background: ${colors.dangerLight};
-  border: 1px solid ${colors.danger}55;
-  border-left: 4px solid ${colors.danger};
-  border-radius: 10px;
+  border: 1px solid ${colors.danger}44;
+  border-radius: 6px;
   margin-bottom: 16px;
-  animation: ${pulse} 2.5s ease-in-out infinite, ${fadeIn} 0.35s ease;
+  animation: ${fadeIn} 0.35s ease;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
 `;
 
 const AlertIcon = styled.span`
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   flex-shrink: 0;
-  margin-top: 1px;
+  color: ${colors.danger};
 `;
 
 const AlertContent = styled.div`
   h4 {
-    font-size: 0.9rem;
-    font-weight: 700;
+    font-size: 0.88rem;
+    font-weight: 600;
     color: ${colors.danger};
     margin-bottom: 4px;
+    letter-spacing: -0.01em;
   }
 
   p {
-    font-size: 0.82rem;
-    color: hsl(0, 50%, 40%);
+    font-size: 0.78rem;
+    color: ${colors.danger};
+    opacity: 0.9;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
   }
 
   ul {
-    margin-top: 6px;
-    padding-left: 18px;
+    margin-top: 8px;
+    padding-left: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    list-style: none;
     
     li {
-      font-size: 0.82rem;
-      color: hsl(0, 50%, 40%);
+      font-size: 0.75rem;
+      background: ${colors.danger};
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 4px;
       font-weight: 500;
     }
   }

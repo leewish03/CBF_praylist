@@ -1,6 +1,6 @@
 /**
  * StatusBar.jsx
- * 실시간 상태 모니터링 배지 및 동기화 수동 실행 버튼 컴포넌트
+ * 실시간 상태 모니터링 배지 및 동기화 수동 실행 버튼 컴포넌트 (Shadcn/ui 스타일 리팩토링)
  */
 
 import React from 'react';
@@ -21,8 +21,8 @@ const fadeIn = keyframes`
 const StatusBarCard = styled.div`
   background: ${colors.cardBg};
   border: 1px solid ${colors.border};
-  border-radius: 14px;
-  box-shadow: 0 2px 12px hsla(0, 0%, 0%, 0.06);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   animation: ${fadeIn} 0.35s ease;
   margin-bottom: 16px;
@@ -34,7 +34,7 @@ const StatusBarInner = styled.div`
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 18px 20px;
+  padding: 14px 20px;
 `;
 
 const StatusLeft = styled.div`
@@ -55,61 +55,63 @@ const StatusBadge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 500;
   background: ${({ status }) => statusConfig[status]?.bg || colors.idleLight};
   color:      ${({ status }) => statusConfig[status]?.text || colors.idle};
-  border: 1px solid ${({ status }) => statusConfig[status]?.text || colors.idle}33;
-  transition: all 0.3s ease;
+  border: 1px solid ${({ status }) => statusConfig[status]?.text || colors.idle}22;
+  transition: all 0.2s ease;
 `;
 
 const Spinner = styled.span`
   display: inline-block;
   width: 10px;
   height: 10px;
-  border: 2px solid currentColor;
+  border: 1.5px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
-  animation: ${spin} 0.7s linear infinite;
+  animation: ${spin} 0.75s linear infinite;
 `;
 
 const StatusDot = styled.span`
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: currentColor;
 `;
 
 const LastRunText = styled.p`
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: ${colors.textSecondary};
+  letter-spacing: -0.01em;
 `;
 
 const TriggerButton = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: ${({ disabled }) => disabled ? colors.idleLight : colors.primary};
-  color: ${({ disabled }) => disabled ? colors.idle : '#fff'};
-  border: none;
-  border-radius: 10px;
-  font-size: 0.88rem;
-  font-weight: 600;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: ${({ disabled }) => disabled ? colors.bg : colors.primary};
+  color: ${({ disabled }) => disabled ? colors.textMuted : '#fff'};
+  border: 1px solid ${({ disabled }) => disabled ? colors.border : colors.primary};
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
-  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-  box-shadow: ${({ disabled }) => disabled ? 'none' : `0 3px 10px hsla(142, 35%, 28%, 0.3)`};
+  transition: all 0.2s ease-in-out;
+  box-shadow: ${({ disabled }) => disabled ? 'none' : `0 1px 2px 0 rgba(0,0,0,0.05)`};
+  letter-spacing: -0.01em;
 
   &:hover:not(:disabled) {
     background: ${colors.primaryDark};
-    transform: translateY(-1px);
-    box-shadow: 0 5px 15px hsla(142, 35%, 28%, 0.35);
+    border-color: ${colors.primaryDark};
   }
 
   &:active:not(:disabled) {
-    transform: translateY(0);
+    transform: translateY(0.5px);
   }
 `;
 
@@ -132,7 +134,7 @@ export default function StatusBar({
             {isRunning ? <Spinner /> : <StatusDot />}
             {statusConfig[currentStatus]?.label || currentStatus}
           </StatusBadge>
-
+ 
           {/* 마지막 실행 시각 */}
           {lastRun && (
             <LastRunText>

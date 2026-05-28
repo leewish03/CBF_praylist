@@ -282,41 +282,59 @@ Error generating stack: `+i.message+`
     }
   }
 `;function Z0({unmappedRequesters:e}){return!e||e.length===0?null:m.jsxs(K0,{children:[m.jsx(X0,{children:"⚠️"}),m.jsxs(b0,{children:[m.jsx("h4",{children:"담당자 미지정 제출자 감지됨"}),m.jsxs("p",{children:["구글 스프레드시트의 ",m.jsx("strong",{children:"[설정_담당자배정]"})," 시트에 아래 제출자들의 담당자 매핑을 추가해 주세요. 지정되지 않은 제출자의 기도제목은 동기화 파이프라인에서 제외됩니다."]}),m.jsx("ul",{children:e.map((t,n)=>m.jsx("li",{children:t},n))})]})]})}const J0=j.div`
-  line-height: 1.65;
+  line-height: 1.6;
   font-size: 0.85rem;
-  color: inherit;
+  color: ${p.textPrimary};
 `,q0=j.p`
-  margin-bottom: 6px;
-  white-space: pre-wrap;
-  color: inherit;
-  font-size: inherit;
-`,eg=j.h3`
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: hsl(142, 72%, 29%);
-  margin-top: 12px;
-  margin-bottom: 6px;
-  letter-spacing: -0.01e;
-`,tg=j.ul`
-  margin-left: 18px;
   margin-bottom: 8px;
-  list-style-type: disc;
-  color: inherit;
+  white-space: pre-wrap;
+  color: ${p.textPrimary};
+  font-size: 0.85rem;
+  font-weight: 400;
+`,eg=j.h3`
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: ${p.primary};
+  margin-top: 2px;
+  margin-bottom: 12px;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+`,tg=j.ul`
+  margin-left: 2px;
+  margin-bottom: 6px;
+  list-style-type: none;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 `,ng=j.li`
-  margin-bottom: 4px;
-  color: inherit;
+  position: relative;
+  padding-left: 18px;
   font-size: 0.82rem;
+  color: ${p.textSecondary};
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+
+  &::before {
+    content: "•";
+    position: absolute;
+    left: 4px;
+    top: -1px;
+    color: ${p.primaryMid};
+    font-size: 0.95rem;
+  }
 `,rg=j.div`
   margin-top: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: flex-start;
-  color: inherit;
+  color: ${p.textPrimary};
 `,og=j.span`
   min-width: 18px;
   font-weight: 700;
-  color: hsl(142, 72%, 29%);
+  color: ${p.primary};
 `,ig=j.span`
   font-weight: 500;
   color: inherit;
@@ -392,19 +410,34 @@ Error generating stack: `+i.message+`
   gap: 10px;
 `,ug=j.li`
   display: flex;
-  gap: 10px;
-  padding: 12px 14px;
-  background: ${p.bg};
+  gap: 14px;
+  padding: 16px 18px;
+  background: ${p.cardBg};
   border: 1px solid ${p.border};
   border-radius: 6px;
   animation: ${Hf} 0.3s ease both;
   animation-delay: ${({idx:e})=>e*.05}s;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    border-color: ${p.primary}33;
+    box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.04);
+  }
 `,ag=j.span`
-  font-size: 0.8rem;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: ${p.primaryLight};
   color: ${p.primary};
-  min-width: 18px;
-  padding-top: 1px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1px solid ${p.primary}15;
+  margin-top: 1px;
 `,cg=j.div`
   font-size: 0.82rem;
   color: ${p.textPrimary};

@@ -1,54 +1,73 @@
 import React from 'react';
 import styled from 'styled-components';
+import colors from '../styles/colors';
 
 const MarkdownContainer = styled.div`
-  line-height: 1.65;
+  line-height: 1.6;
   font-size: 0.85rem;
-  color: inherit;
+  color: ${colors.textPrimary};
 `;
 
 const Paragraph = styled.p`
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   white-space: pre-wrap;
-  color: inherit;
-  font-size: inherit;
+  color: ${colors.textPrimary};
+  font-size: 0.85rem;
+  font-weight: 400;
 `;
 
 const Heading3 = styled.h3`
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: hsl(142, 72%, 29%);
-  margin-top: 12px;
-  margin-bottom: 6px;
-  letter-spacing: -0.01e;
+  color: ${colors.primary};
+  margin-top: 2px;
+  margin-bottom: 12px;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
 `;
 
 const BulletList = styled.ul`
-  margin-left: 18px;
-  margin-bottom: 8px;
-  list-style-type: disc;
-  color: inherit;
+  margin-left: 2px;
+  margin-bottom: 6px;
+  list-style-type: none;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 `;
 
 const BulletItem = styled.li`
-  margin-bottom: 4px;
-  color: inherit;
+  position: relative;
+  padding-left: 18px;
   font-size: 0.82rem;
+  color: ${colors.textSecondary};
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+
+  &::before {
+    content: "•";
+    position: absolute;
+    left: 4px;
+    top: -1px;
+    color: ${colors.primaryMid};
+    font-size: 0.95rem;
+  }
 `;
 
 const NumberedItem = styled.div`
   margin-top: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: flex-start;
-  color: inherit;
+  color: ${colors.textPrimary};
 `;
 
 const NumberText = styled.span`
   min-width: 18px;
   font-weight: 700;
-  color: hsl(142, 72%, 29%);
+  color: ${colors.primary};
 `;
 
 const NumberContent = styled.span`

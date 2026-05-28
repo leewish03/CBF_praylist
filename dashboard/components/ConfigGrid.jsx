@@ -97,21 +97,36 @@ const PrayerList = styled.ol`
 
 const PrayerItem = styled.li`
   display: flex;
-  gap: 10px;
-  padding: 12px 14px;
-  background: ${colors.bg};
+  gap: 14px;
+  padding: 16px 18px;
+  background: ${colors.cardBg};
   border: 1px solid ${colors.border};
   border-radius: 6px;
   animation: ${slideIn} 0.3s ease both;
   animation-delay: ${({ idx }) => idx * 0.05}s;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    border-color: ${colors.primary}33;
+    box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.04);
+  }
 `;
 
 const PrayerNum = styled.span`
-  font-size: 0.8rem;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: ${colors.primaryLight};
   color: ${colors.primary};
-  min-width: 18px;
-  padding-top: 1px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1px solid ${colors.primary}15;
+  margin-top: 1px;
 `;
 
 const PrayerText = styled.div`

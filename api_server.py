@@ -42,6 +42,74 @@ app = FastAPI(
     version="2.0.0"
 )
 
+# ── 인메모리 캐시 및 비동기 스케줄러 ──
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+# 전역 메모리 캐시 초기값
+prayers_cache = {
+    "source": "empty",
+    "last_updated": None,
+    "prayers_by_requester": {}
+}
+
+# 비동기 실행용 스레드 풀
+executor = ThreadPoolExecutor(max_workers=3)
+
+async def load_prayers_to_cache():
+    """구글 시트 또는 로컬 파일에서 데이터를 로드하여 전역 캐시 갱신"""
+    global prayers_cache
+    import json
+    
+    # 1. 로컬 파일 캐시 확인 (빠른 부팅용)
+    cache_file = 'prayers_data.json'
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            prayers_cache = {
+                "source": "local_cache",
+                **data
+            }
+            logger.info("✅ 전역 메모리 캐시 로드 성공 (로컬 파일 기준)")
+        except Exception as e:
+            logger.warning(f"로컬 파일 캐시 로드 실패: {str(e)}")
+            
+    # 2. 구글 스프레드시트 실시간 동기화 (최신 데이터 확보)
+    try:
+        from google_sheets import get_prayer_requests
+        from data_processor import process_prayer_requests
+        
+        loop = asyncio.get_running_loop()
+        df = await loop.run_in_executor(executor, get_prayer_requests)
+        if df is not None:
+            processed_data = await loop.run_in_executor(executor, process_prayer_requests, df)
+            if processed_data:
+                prayers_cache = {
+                    "source": "memory_sync",
+                    **processed_data
+                }
+                logger.info("✅ 전역 메모리 캐시 동기화 성공 (구글 스프레드시트 기준)")
+    except Exception as e:
+        logger.error(f"구글 시트 실시간 캐시 동기화 실패: {str(e)}")
+
+async def refresh_cache_periodically():
+    """주기적으로 (15분마다) 캐시를 갱신하는 백그라운드 태스크"""
+    while True:
+        await asyncio.sleep(900)  # 15분 대기
+        try:
+            logger.info("⏰ 백그라운드 캐시 동기화 루프 시작")
+            await load_prayers_to_cache()
+        except Exception as e:
+            logger.error(f"백그라운드 캐시 동기화 실패: {str(e)}")
+
+@app.on_event("startup")
+async def startup_event():
+    # 기동 시 즉시 캐시 로드 시작 (비차단 백그라운드 실행)
+    asyncio.create_task(load_prayers_to_cache())
+    # 주기적 동기화 루프 실행
+    asyncio.create_task(refresh_cache_periodically())
+
 # ── CORS 설정 (프론트엔드 연동) ──
 app.add_middleware(
     CORSMiddleware,
@@ -106,11 +174,16 @@ async def trigger_pipeline(background_tasks: BackgroundTasks):
             detail="파이프라인이 이미 실행 중입니다. 잠시 후 다시 시도해주세요."
         )
     
+    loop = asyncio.get_running_loop()
+    
     def _run_and_release():
-        """파이프라인 실행 후 Lock 해제"""
+        """파이프라인 실행 후 Lock 해제 및 캐시 갱신"""
         try:
             logger.info("백그라운드 파이프라인 실행 시작")
-            run_pipeline()
+            success = run_pipeline()
+            if success:
+                # 동기화가 끝났으므로 전역 메모리 캐시 갱신
+                asyncio.run_coroutine_threadsafe(load_prayers_to_cache(), loop)
         except Exception as e:
             logger.error(f"백그라운드 파이프라인 실행 오류: {str(e)}")
         finally:
@@ -133,94 +206,11 @@ async def trigger_pipeline(background_tasks: BackgroundTasks):
 @app.get("/api/prayers")
 async def get_prayers():
     """
-    저장된/캐시된 기도제목 데이터를 반환합니다.
-    1. DATABASE_URL이 설정된 경우 데이터베이스에서 조회
-    2. 데이터베이스 조회가 안 되거나 없으면 로컬 prayers_data.json 파일 조회
-    3. 둘 다 없으면 실시간으로 구글 시트에서 직접 수집하여 반환 (폴백)
+    메모리에 실시간 캐싱된 기도제목 데이터를 즉시 반환합니다.
+    (0초 로딩 및 영구 보존용)
     """
-    db_url = os.getenv('DATABASE_URL')
-    
-    # 1. 데이터베이스에서 조회 시도
-    if db_url:
-        try:
-            import psycopg2
-            from psycopg2.extras import RealDictCursor
-            
-            if db_url.startswith("postgres://"):
-                db_url = db_url.replace("postgres://", "postgresql://", 1)
-                
-            conn = psycopg2.connect(db_url)
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            
-            # 메타데이터 및 동기화 정보 로드
-            cur.execute("SELECT value FROM prayer_metadata WHERE key = 'sync_info';")
-            meta_row = cur.fetchone()
-            
-            # 개별 기도제목 로드
-            cur.execute("SELECT name, target_name, gender, age, relationship, prayer_content, church FROM prayers ORDER BY id ASC;")
-            prayers_rows = cur.fetchall()
-            
-            cur.close()
-            conn.close()
-            
-            # 데이터 구조 가공
-            # DB 데이터를 prayers_by_requester 형식으로 복원
-            prayers_by_requester = {}
-            for row in prayers_rows:
-                requester = row['name']
-                if requester not in prayers_by_requester:
-                    prayers_by_requester[requester] = []
-                prayers_by_requester[requester].append(dict(row))
-                
-            last_updated = datetime.now().strftime('%Y-%m-%d %H:%M')
-            if meta_row and 'value' in meta_row:
-                last_updated = meta_row['value'].get('last_updated', last_updated)
-                
-            return {
-                "source": "database",
-                "last_updated": last_updated,
-                "prayers_by_requester": prayers_by_requester
-            }
-        except Exception as e:
-            logger.warning(f"데이터베이스 조회 실패 (로컬 캐시/구글시트 조회를 시도합니다): {str(e)}")
-            
-    # 2. 로컬 캐시 파일 조회 시도
-    cache_file = 'prayers_data.json'
-    if os.path.exists(cache_file):
-        try:
-            import json
-            with open(cache_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            return {
-                "source": "local_cache",
-                **data
-            }
-        except Exception as e:
-            logger.warning(f"로컬 캐시 파일 로드 실패 (실시간 조회를 시도합니다): {str(e)}")
-            
-    # 3. 구글 스프레드시트 실시간 수집 폴백
-    try:
-        from google_sheets import get_prayer_requests
-        from data_processor import process_prayer_requests
-        
-        logger.info("캐시 및 데이터베이스가 존재하지 않아 구글 스프레드시트 실시간 수집을 시도합니다.")
-        df = get_prayer_requests()
-        if df is not None:
-            processed_data = process_prayer_requests(df)
-            if processed_data:
-                return {
-                    "source": "realtime_fallback",
-                    **processed_data
-                }
-    except Exception as e:
-        logger.error(f"실시간 스프레드시트 조회 실패: {str(e)}")
-        
-    # 4. 최종 빈 상태 반환
-    return {
-        "source": "empty",
-        "last_updated": None,
-        "prayers_by_requester": {}
-    }
+    global prayers_cache
+    return prayers_cache
 
 
 # ============================================================

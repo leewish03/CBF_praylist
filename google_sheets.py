@@ -9,8 +9,10 @@ from typing import Dict, List
 load_dotenv()
 
 # Google Sheets API 권한 범위 (읽기/쓰기 모두 포함)
+# 설정용 스프레드시트(1Bvl...) 및 설문 응답용 스프레드시트(1pfn...)
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID', '1Bvl8bKvXQezJA3diKZM3sd_WauWSEG7jjjh7w3e74VI')
+RESPONSES_SPREADSHEET_ID = os.getenv('RESPONSES_SPREADSHEET_ID', '1pfntXb8KM5ONJTVbLDi02e5X0SvFiKqFZTYQh6gQP9U')
 RANGE_NAME = os.getenv('RANGE_NAME', "'설문지 응답 시트1'!A:Z")
 
 # 설정 시트명 상수 (config.py와 동기화)
@@ -45,7 +47,7 @@ def get_prayer_requests():
         service = get_google_sheets_service()
         sheet = service.spreadsheets()
         result = sheet.values().get(
-            spreadsheetId=SPREADSHEET_ID,
+            spreadsheetId=RESPONSES_SPREADSHEET_ID,
             range=RANGE_NAME
         ).execute()
         

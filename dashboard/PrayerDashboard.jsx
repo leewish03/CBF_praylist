@@ -471,8 +471,44 @@ export default function PrayerDashboard() {
             {/* 담당자 미배정 제출자 에러 배너 */}
             <AlertBanner unmappedRequesters={unmapped} />
 
-            {/* 구글 시트 즉시 새로고침 버튼 */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+            {/* 구글 시트 바로가기 + 새로고침 버튼 묶음 */}
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: '8px',
+              justifyContent: 'flex-end', marginBottom: '12px', alignItems: 'center'
+            }}>
+              {/* 설문 응답 시트 바로가기 */}
+              <a
+                href="https://docs.google.com/spreadsheets/d/1pfntXb8KM5ONJTVbLDi02e5X0SvFiKqFZTYQh6gQP9U"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '6px 14px', borderRadius: '6px', fontSize: '0.78rem',
+                  fontWeight: '500', cursor: 'pointer', textDecoration: 'none',
+                  border: `1px solid #16a34a44`,
+                  background: '#16a34a11', color: '#16a34a', transition: 'all 0.2s'
+                }}
+              >
+                📋 설문 응답 시트
+              </a>
+              {/* 설정 시트 바로가기 (공통기도제목 & 담당자배정) */}
+              <a
+                href="https://docs.google.com/spreadsheets/d/1Bvl8bKvXQezJA3diKZM3sd_WauWSEG7jjjh7w3e74VI"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '6px 14px', borderRadius: '6px', fontSize: '0.78rem',
+                  fontWeight: '500', cursor: 'pointer', textDecoration: 'none',
+                  border: `1px solid #2563eb44`,
+                  background: '#2563eb11', color: '#2563eb', transition: 'all 0.2s'
+                }}
+              >
+                ⚙️ 설정 시트
+              </a>
+              {/* 구분선 */}
+              <div style={{ width: '1px', height: '20px', background: colors.border, margin: '0 2px' }} />
+              {/* 캐시 즉시 새로고침 */}
               <button
                 onClick={handleForceRefresh}
                 disabled={isConfigLoading}
@@ -484,7 +520,7 @@ export default function PrayerDashboard() {
                   opacity: isConfigLoading ? 0.6 : 1
                 }}
               >
-                🔄 {isConfigLoading ? '로딩 중...' : '구글 시트 새로고침'}
+                🔄 {isConfigLoading ? '로딩 중...' : '새로고침'}
               </button>
             </div>
 

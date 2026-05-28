@@ -31,3 +31,5 @@ services:
         value: "10"
       - key: LOG_BACKUP_COUNT
         value: "5"
+      - key: PYTHON_VERSION
+        value: 3.10.12

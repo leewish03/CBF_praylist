@@ -6,6 +6,7 @@
 import React from 'react';
 import styled, { keyframes } from 'styled-components';
 import colors from '../styles/colors';
+import MarkdownText from './MarkdownText';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(-6px); }
@@ -24,7 +25,7 @@ const SkeletonAnim = keyframes`
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: ${({ singleColumn }) => singleColumn ? '1fr' : '1fr 1fr'};
   gap: 16px;
   margin-bottom: 16px;
 
@@ -202,15 +203,17 @@ export default function ConfigGrid({
   prayerSource,
   assignments,
   assignSource,
-  onManagerClick
+  onManagerClick,
+  isAdmin = true
 }) {
   const isSheetPrayer = prayerSource === 'google_sheets';
   const isSheetAssign = assignSource === 'google_sheets';
+  const singleColumn = !isAdmin;
 
   // 로딩 스켈레톤 UI
   if (isConfigLoading) {
     return (
-      <Grid>
+      <Grid singleColumn={singleColumn}>
         <Card>
           <CardHeader><h3>📋 공통 기도제목 로딩 중...</h3></CardHeader>
           <CardBody>
@@ -220,14 +223,16 @@ export default function ConfigGrid({
             <SkeletonLine h="40px" />
           </CardBody>
         </Card>
-        <Card>
-          <CardHeader><h3>👥 담당자 배정 로딩 중...</h3></CardHeader>
-          <CardBody>
-            <SkeletonLine h="24px" />
-            <SkeletonLine h="24px" />
-            <SkeletonLine h="24px" />
-          </CardBody>
-        </Card>
+        {isAdmin && (
+          <Card>
+            <CardHeader><h3>👥 담당자 배정 로딩 중...</h3></CardHeader>
+            <CardBody>
+              <SkeletonLine h="24px" />
+              <SkeletonLine h="24px" />
+              <SkeletonLine h="24px" />
+            </CardBody>
+          </Card>
+        )}
       </Grid>
     );
   }
@@ -235,15 +240,17 @@ export default function ConfigGrid({
   // 오류 UI
   if (configError) {
     return (
-      <Grid>
+      <Grid singleColumn={singleColumn}>
         <Card>
           <CardHeader><h3>📋 공통 기도제목</h3></CardHeader>
           <CardBody><ErrorMessage>⚠ {configError}</ErrorMessage></CardBody>
         </Card>
-        <Card>
-          <CardHeader><h3>👥 담당자 배정</h3></CardHeader>
-          <CardBody><ErrorMessage>⚠ {configError}</ErrorMessage></CardBody>
-        </Card>
+        {isAdmin && (
+          <Card>
+            <CardHeader><h3>👥 담당자 배정</h3></CardHeader>
+            <CardBody><ErrorMessage>⚠ {configError}</ErrorMessage></CardBody>
+          </Card>
+        )}
       </Grid>
     );
   }
@@ -251,12 +258,12 @@ export default function ConfigGrid({
   const managerEntries = Object.entries(assignments);
 
   return (
-    <Grid>
+    <Grid singleColumn={singleColumn}>
       {/* ── 공통 기도제목 카드 ── */}
       <Card>
         <CardHeader>
           <h3>📋 공통 기도제목</h3>
-          {prayerSource && (
+          {isAdmin && prayerSource && (
             <SourceTag isSheet={isSheetPrayer}>
               {isSheetPrayer ? '🟢 구글 시트' : '🟠 내장 기본값'}
             </SourceTag>
@@ -268,7 +275,7 @@ export default function ConfigGrid({
               {commonPrayers.map((prayer, idx) => (
                 <PrayerItem key={idx} idx={idx}>
                   <PrayerNum>{idx + 1}.</PrayerNum>
-                  <PrayerText>{prayer}</PrayerText>
+                  <PrayerText><MarkdownText text={prayer} /></PrayerText>
                 </PrayerItem>
               ))}
             </PrayerList>
@@ -279,42 +286,44 @@ export default function ConfigGrid({
       </Card>
 
       {/* ── 담당자 배정 현황 카드 ── */}
-      <Card>
-        <CardHeader>
-          <h3>👥 담당자 지정 현황</h3>
-          {assignSource && (
-            <SourceTag isSheet={isSheetAssign}>
-              {isSheetAssign ? '🟢 구글 시트' : '🟠 내장 기본값'}
-            </SourceTag>
-          )}
-        </CardHeader>
-        <CardBody>
-          {managerEntries.length > 0 ? (
-            <AssignmentTable>
-              {managerEntries.map(([manager, assignees], idx) => (
-                <AssignmentRow key={manager} idx={idx}>
-                  <ManagerName onClick={() => onManagerClick && onManagerClick(manager)}>
-                    {manager}
-                  </ManagerName>
-                  <AssigneeTags>
-                    {assignees.length > 0 ? (
-                      assignees.map((name, aIdx) => (
-                        <AssigneeTag key={aIdx}>{name}</AssigneeTag>
-                      ))
-                    ) : (
-                      <span style={{ fontSize: '0.78rem', color: colors.textMuted, fontStyle: 'italic' }}>
-                        배정 없음
-                      </span>
-                    )}
-                  </AssigneeTags>
-                </AssignmentRow>
-              ))}
-            </AssignmentTable>
-          ) : (
-            <EmptyState>배정된 담당자 정보가 없습니다.</EmptyState>
-          )}
-        </CardBody>
-      </Card>
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <h3>👥 담당자 지정 현황</h3>
+            {assignSource && (
+              <SourceTag isSheet={isSheetAssign}>
+                {isSheetAssign ? '🟢 구글 시트' : '🟠 내장 기본값'}
+              </SourceTag>
+            )}
+          </CardHeader>
+          <CardBody>
+            {managerEntries.length > 0 ? (
+              <AssignmentTable>
+                {managerEntries.map(([manager, assignees], idx) => (
+                  <AssignmentRow key={manager} idx={idx}>
+                    <ManagerName onClick={() => onManagerClick && onManagerClick(manager)}>
+                      {manager}
+                    </ManagerName>
+                    <AssigneeTags>
+                      {assignees.length > 0 ? (
+                        assignees.map((name, aIdx) => (
+                          <AssigneeTag key={aIdx}>{name}</AssigneeTag>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: colors.textMuted, fontStyle: 'italic' }}>
+                          배정 없음
+                        </span>
+                      )}
+                    </AssigneeTags>
+                  </AssignmentRow>
+                ))}
+              </AssignmentTable>
+            ) : (
+              <EmptyState>배정된 담당자 정보가 없습니다.</EmptyState>
+            )}
+          </CardBody>
+        </Card>
+      )}
     </Grid>
   );
 }

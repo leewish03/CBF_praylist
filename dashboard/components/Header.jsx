@@ -61,7 +61,13 @@ const HeaderText = styled.div`
   }
 `;
 
-const NotionButton = styled.a`
+const ButtonContainer = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const HeaderButton = styled.a`
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -83,25 +89,54 @@ const NotionButton = styled.a`
   }
 `;
 
-export default function Header({ notionPageUrl }) {
+export default function Header({ notionPageUrl, isAdmin, onNavigate }) {
+  const handleNav = (path, e) => {
+    e.preventDefault();
+    if (onNavigate) {
+      onNavigate(path);
+    }
+  };
+
   return (
     <HeaderWrapper>
       <HeaderTitle>
-        <HeaderEmoji>🙏</HeaderEmoji>
+        <HeaderEmoji>{isAdmin ? '⚙️' : '🙏'}</HeaderEmoji>
         <HeaderText>
-          <h1>CBF 기도제목 자동화 대시보드</h1>
-          <p>Google Sheets → Notion 자동 동기화 파이프라인</p>
+          <h1>{isAdmin ? 'CBF 기도제목 관리자 대시보드' : 'CBF 기도제목 뷰어'}</h1>
+          <p>
+            {isAdmin 
+              ? '설정 변경, 파이프라인 트리거 및 로그 모니터링' 
+              : '오늘의 CBF 공동 기도제목 및 구도자 기도제목'}
+          </p>
         </HeaderText>
       </HeaderTitle>
-      {notionPageUrl && (
-        <NotionButton
-          href={notionPageUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          📓 Notion 페이지 열기
-        </NotionButton>
-      )}
+      <ButtonContainer>
+        {notionPageUrl && (
+          <HeaderButton
+            href={notionPageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            📓 Notion 페이지
+          </HeaderButton>
+        )}
+        {isAdmin ? (
+          <HeaderButton
+            href="/"
+            onClick={(e) => handleNav('/', e)}
+            style={{ background: 'hsla(142, 30%, 45%, 0.4)', borderColor: 'hsla(142, 30%, 45%, 0.6)' }}
+          >
+            🙏 기도팀 화면으로
+          </HeaderButton>
+        ) : (
+          <HeaderButton
+            href="/admin"
+            onClick={(e) => handleNav('/admin', e)}
+          >
+            ⚙️ 관리자 도구
+          </HeaderButton>
+        )}
+      </ButtonContainer>
     </HeaderWrapper>
   );
 }

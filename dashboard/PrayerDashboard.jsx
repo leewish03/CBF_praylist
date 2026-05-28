@@ -53,6 +53,24 @@ const ContainerWrapper = styled.div`
 const API_BASE_URL = process.env.REACT_APP_API_URL || ''; 
 
 export default function PrayerDashboard() {
+  // ── 라우팅 상태 ──
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  // 페이지 이동 함수
+  const navigate = useCallback((path) => {
+    window.history.pushState(null, '', path);
+    setCurrentPath(path);
+  }, []);
+
+  // 뒤로가기/앞으로가기 브라우저 액션 대응
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // ── 상태 관리 ──
   const [status, setStatus]           = useState(null);           // /api/status 데이터
   const [configData, setConfigData]   = useState(null);           // /api/config 데이터
@@ -203,70 +221,101 @@ export default function PrayerDashboard() {
   const assignments    = configData?.assignments?.data || {};
   const assignSource   = configData?.assignments?.source;
 
+  const isAdmin = currentPath === '/admin';
+
   return (
     <>
       <GlobalStyle />
       <ContainerWrapper>
         {/* ── 헤더 ── */}
-        <Header notionPageUrl={notionPageUrl} />
+        <Header notionPageUrl={notionPageUrl} isAdmin={isAdmin} onNavigate={navigate} />
 
-        {/* ── 상태 정보 바 ── */}
-        <StatusBar
-          currentStatus={currentStatus}
-          lastRun={lastRun}
-          configSource={configSource}
-          statusError={statusError}
-          isTriggering={isTriggering}
-          handleTrigger={handleTrigger}
-        />
+        {isAdmin ? (
+          // ⚙️ 관리자용 페이지 뷰
+          <>
+            {/* 상태 정보 바 */}
+            <StatusBar
+              currentStatus={currentStatus}
+              lastRun={lastRun}
+              configSource={configSource}
+              statusError={statusError}
+              isTriggering={isTriggering}
+              handleTrigger={handleTrigger}
+            />
 
-        {/* ── 트리거 액션 알림 팝업/토스트 메시지 ── */}
-        {triggerMsg && (
-          <div style={{
-            padding: '10px 14px',
-            marginBottom: '16px',
-            borderRadius: '8px',
-            fontSize: '0.8rem',
-            fontWeight: '600',
-            background: triggerMsg.type === 'success' ? colors.successLight : 
-                        (triggerMsg.type === 'warn' ? colors.warningLight : colors.dangerLight),
-            color: triggerMsg.type === 'success' ? colors.success : 
-                   (triggerMsg.type === 'warn' ? colors.warning : colors.danger),
-            border: `1px solid ${triggerMsg.type === 'success' ? colors.success : 
-                                (triggerMsg.type === 'warn' ? colors.warning : colors.danger)}44`
-          }}>
-            {triggerMsg.type === 'success' ? '✅' : '⚠'} {triggerMsg.text}
-          </div>
+            {/* 트리거 액션 알림 팝업/토스트 메시지 */}
+            {triggerMsg && (
+              <div style={{
+                padding: '10px 14px',
+                marginBottom: '16px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                fontWeight: '600',
+                background: triggerMsg.type === 'success' ? colors.successLight : 
+                            (triggerMsg.type === 'warn' ? colors.warningLight : colors.dangerLight),
+                color: triggerMsg.type === 'success' ? colors.success : 
+                       (triggerMsg.type === 'warn' ? colors.warning : colors.danger),
+                border: `1px solid ${triggerMsg.type === 'success' ? colors.success : 
+                                    (triggerMsg.type === 'warn' ? colors.warning : colors.danger)}44`
+              }}>
+                {triggerMsg.type === 'success' ? '✅' : '⚠'} {triggerMsg.text}
+              </div>
+            )}
+
+            {/* 담당자 미배정 제출자 에러 배너 */}
+            <AlertBanner unmappedRequesters={unmapped} />
+
+            {/* 실제 수집된 기도제목 뷰어 */}
+            <PrayersViewer
+              prayersData={prayersData}
+              assignments={assignments}
+              selectedManager={selectedManager}
+              setSelectedManager={setSelectedManager}
+            />
+
+            {/* 설정 정보(공통 기도제목 & 담당자 배정) 카드 그리드 */}
+            <ConfigGrid
+              isConfigLoading={isConfigLoading}
+              configError={configError}
+              commonPrayers={commonPrayers}
+              prayerSource={prayerSource}
+              assignments={assignments}
+              assignSource={assignSource}
+              onManagerClick={setSelectedManager}
+              isAdmin={true}
+            />
+
+            {/* 실시간 로그 터미널 */}
+            <ConsolePanel
+              logs={logs}
+              logsError={logsError}
+              currentStatus={currentStatus}
+            />
+          </>
+        ) : (
+          // 🙏 기도팀용 페이지 뷰 (기도제목만 노출)
+          <>
+            {/* 공통 기도제목 카드 (담당자 지정 없이 1열로만 렌더링) */}
+            <ConfigGrid
+              isConfigLoading={isConfigLoading}
+              configError={configError}
+              commonPrayers={commonPrayers}
+              prayerSource={prayerSource}
+              assignments={assignments}
+              assignSource={assignSource}
+              onManagerClick={setSelectedManager}
+              isAdmin={false}
+            />
+
+            {/* 실제 수집된 개별 구도자 기도제목 뷰어 */}
+            <PrayersViewer
+              prayersData={prayersData}
+              assignments={assignments}
+              selectedManager={selectedManager}
+              setSelectedManager={setSelectedManager}
+            />
+          </>
         )}
-
-        {/* ── 담당자 미배정 제출자 에러 배너 ── */}
-        <AlertBanner unmappedRequesters={unmapped} />
-
-        {/* ── 실제 수집된 기도제목 뷰어 (Notion 대체) ── */}
-        <PrayersViewer
-          prayersData={prayersData}
-          assignments={assignments}
-          selectedManager={selectedManager}
-          setSelectedManager={setSelectedManager}
-        />
-
-        {/* ── 공통기도 & 담당자 배정 카드 그리드 ── */}
-        <ConfigGrid
-          isConfigLoading={isConfigLoading}
-          configError={configError}
-          commonPrayers={commonPrayers}
-          prayerSource={prayerSource}
-          assignments={assignments}
-          assignSource={assignSource}
-          onManagerClick={setSelectedManager}
-        />
-
-        {/* ── 실시간 로그 터미널 ── */}
-        <ConsolePanel
-          logs={logs}
-          logsError={logsError}
-          currentStatus={currentStatus}
-        />
       </ContainerWrapper>
     </>
   );

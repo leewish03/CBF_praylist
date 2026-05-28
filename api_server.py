@@ -326,12 +326,27 @@ async def health_check():
     }
 
 
-# ── 프론트엔드 정적 파일 마운트 (정적 파일 폴더가 존재하는 경우) ──
-# API 경로(/api) 이외의 모든 경로는 React 정적 파일(static/)을 바라보도록 설정합니다.
+# ── 프론트엔드 정적 파일 마운트 및 SPA 라우팅 지원 ──
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
-if os.path.exists("static"):
-    app.mount("/", StaticFiles(directory="static", html=True), name="static")
+# assets 디렉토리 개별 마운트
+if os.path.exists("static/assets"):
+    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+
+# SPA 라우팅을 위한 Catch-all GET 핸들러 (API 요청 제외한 모든 경로 대응)
+@app.get("/{catchall:path}")
+async def read_index(catchall: str):
+    # API 요청 오류 처리
+    if catchall.startswith("api"):
+        raise HTTPException(status_code=404, detail="API route not found")
+    
+    # index.html 반환
+    index_path = os.path.join("static", "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+        
+    raise HTTPException(status_code=404, detail="Static index.html not found")
 
 
 

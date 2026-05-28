@@ -10,6 +10,8 @@ import traceback
 import sys
 from datetime import datetime
 from filelock import FileLock, Timeout
+from dotenv import load_dotenv
+load_dotenv()
 
 # ============================================================
 # 파이프라인 전역 상태 (API 서버에서 접근 가능)
@@ -145,16 +147,17 @@ def generate_pipeline_report(processed_data, execution_time, assignments):
 
 def validate_environment_for_pipeline(require_notion=False):
     """파이프라인 실행을 위한 환경 변수 검증 (Notion 선택 사항화)"""
-    import os
-    
-    required_vars = ['SPREADSHEET_ID']
-    if require_notion:
-        required_vars.extend(['NOTION_TOKEN', 'NOTION_PAGE_ID'])
-        
     missing_vars = []
-    for var in required_vars:
-        if not os.getenv(var):
-            missing_vars.append(var)
+    
+    # config 인스턴스에 채워진 기본값/실제 환경변수를 기반으로 검증
+    if not config.google_sheets.spreadsheet_id:
+        missing_vars.append('SPREADSHEET_ID')
+        
+    if require_notion:
+        if not config.notion.token:
+            missing_vars.append('NOTION_TOKEN')
+        if not config.notion.page_id:
+            missing_vars.append('NOTION_PAGE_ID')
     
     if missing_vars:
         raise ValueError(f"필수 환경변수가 누락되었습니다: {', '.join(missing_vars)}")

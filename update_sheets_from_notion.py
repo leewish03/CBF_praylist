@@ -29,6 +29,7 @@ def parse_notion_text(file_path):
         
     common_prayers = []
     assignments = {m: [] for m in MANAGERS}
+    prayer_requests = [] # 개별 기도제목 데이터 목록
     
     # ── 1. 공통 기도제목 파싱 ──
     print("📋 공통 기도제목 파싱 중...")
@@ -62,31 +63,87 @@ def parse_notion_text(file_path):
     for i, p in enumerate(common_prayers):
         print(f"   [{i+1}] {p[:60]}...")
         
-    # ── 2. 담당자 배정 파싱 ──
-    print("\n👥 담당자 배정 파싱 중...")
-    in_assignment_section = False
+    # ── 2. 담당자 배정 및 개별 기도제목 파싱 ──
+    print("\n👥 담당자 배정 및 개별 기도제목 파싱 중...")
     current_manager = None
+    i = 0
     
-    for line in lines:
-        if "담당자별 기도제목" in line:
-            in_assignment_section = True
+    while i < len(lines):
+        line = lines[i].strip()
+        
+        # 담당자 감지
+        if line in MANAGERS:
+            current_manager = line
+            i += 1
             continue
             
-        if in_assignment_section:
-            # 담당자 이름 매칭
-            cleaned_line = line.strip()
-            if cleaned_line in MANAGERS:
-                current_manager = cleaned_line
-                continue
-                
-            # 제출자 파싱 (예: "제출자: 김선양")
-            if "제출자:" in cleaned_line and current_manager:
-                assignee = cleaned_line.split("제출자:")[1].strip()
-                # 괄호나 공백 제거
-                assignee = re.sub(r'[\(\[\{\s].*', '', assignee)  # 이름 뒤 부가정보 제거
-                if assignee and assignee not in assignments[current_manager]:
-                    assignments[current_manager].append(assignee)
-                    
+        # 제출자 파싱 시작
+        if "제출자:" in line:
+            requester = line.split("제출자:")[1].strip()
+            requester = re.sub(r'[\(\[\{\s].*', '', requester) # 이름 뒤 부가정보 제거
+            
+            target_name = ""
+            gender = ""
+            age = ""
+            relationship = ""
+            prayer_content_lines = []
+            church = ""
+            
+            i += 1
+            # 다음 제출자 혹은 다음 담당자가 나오기 전까지 파싱 진행
+            while i < len(lines) and "제출자:" not in lines[i] and lines[i].strip() not in MANAGERS:
+                sub_line = lines[i].strip()
+                if "구도자:" in sub_line:
+                    raw_target = sub_line.split("구도자:")[1].strip()
+                    # 괄호 매치 (예: "조은서 (여, 2002)" 또는 "박종현 (남, 2005)")
+                    match_meta = re.search(r'(.*?)\((.*?)\)', raw_target)
+                    if match_meta:
+                        target_name = match_meta.group(1).strip()
+                        meta_parts = [p.strip() for p in match_meta.group(2).split(',')]
+                        if len(meta_parts) >= 1:
+                            gender = meta_parts[0]
+                        if len(meta_parts) >= 2:
+                            age = meta_parts[1]
+                    else:
+                        target_name = raw_target
+                elif "관계:" in sub_line:
+                    relationship = sub_line.split("관계:")[1].strip()
+                elif "교회:" in sub_line:
+                    church = sub_line.split("교회:")[1].strip()
+                elif "기도제목:" in sub_line:
+                    # 그 다음 줄부터 본문 수집 시작
+                    i += 1
+                    while i < len(lines) and "제출자:" not in lines[i] and lines[i].strip() not in MANAGERS and "구도자:" not in lines[i] and "관계:" not in lines[i]:
+                        content_line = lines[i].strip()
+                        # "OO님의 기도제목" 같은 안내 라인은 필터링
+                        if "님의 기도제목" not in content_line and content_line:
+                            prayer_content_lines.append(content_line)
+                        i += 1
+                    continue
+                i += 1
+            
+            prayer_content = "\n".join(prayer_content_lines).strip()
+            timestamp = "2026. 5. 28 오전 10:00:00"
+            
+            prayer_requests.append([
+                timestamp,
+                requester,
+                church,
+                target_name,
+                gender,
+                age,
+                relationship,
+                prayer_content
+            ])
+            
+            # 담당자 맵에 추가
+            if current_manager and requester not in assignments[current_manager]:
+                assignments[current_manager].append(requester)
+            continue
+            
+        i += 1
+        
+    print(f"   추출된 개별 기도제목 수: {len(prayer_requests)}")
     print("   추출된 담당자별 배정 현황:")
     total_assignments = 0
     for manager, assignees in assignments.items():
@@ -94,22 +151,19 @@ def parse_notion_text(file_path):
         total_assignments += len(assignees)
     print(f"   총 배정 건수: {total_assignments}")
     
-    return common_prayers, assignments
+    return common_prayers, assignments, prayer_requests
 
-def update_sheets(common_prayers, assignments):
+def update_sheets(common_prayers, assignments, prayer_requests):
     service = get_sheets_service()
     
     # ── 1. 설정_공통기도제목 업데이트 ──
     print("\n✍️  '설정_공통기도제목' 업데이트 중...")
     sheet_name = '설정_공통기도제목'
-    
-    # 기존 데이터 클리어
     service.spreadsheets().values().clear(
         spreadsheetId=SPREADSHEET_ID,
         range=f"'{sheet_name}'!A:D"
     ).execute()
     
-    # 데이터 구성
     common_values = [["순번", "기도제목", "활성화여부", "비고"]]
     for i, prayer in enumerate(common_prayers):
         common_values.append([str(i+1), prayer, "Y", ""])
@@ -125,14 +179,11 @@ def update_sheets(common_prayers, assignments):
     # ── 2. 설정_담당자배정 업데이트 ──
     print("\n✍️  '설정_담당자배정' 업데이트 중...")
     sheet_name = '설정_담당자배정'
-    
-    # 기존 데이터 클리어
     service.spreadsheets().values().clear(
         spreadsheetId=SPREADSHEET_ID,
         range=f"'{sheet_name}'!A:B"
     ).execute()
     
-    # 데이터 구성
     assignment_values = [["담당자", "제출자이름"]]
     for manager, assignees in assignments.items():
         assignees_str = ", ".join(assignees)
@@ -146,20 +197,48 @@ def update_sheets(common_prayers, assignments):
     ).execute()
     print("   ✅ '설정_담당자배정' 완료")
 
+    # ── 3. 설문지 응답 시트1 업데이트 (개별 기도제목 마이그레이션) ──
+    print("\n✍️  '설문지 응답 시트1' 업데이트 중...")
+    sheet_name = '설문지 응답 시트1'
+    service.spreadsheets().values().clear(
+        spreadsheetId=SPREADSHEET_ID,
+        range=f"'{sheet_name}'!A:H"
+    ).execute()
+    
+    headers = [
+        "타임스탬프", 
+        "이름", 
+        "교회", 
+        "이름(구도자)", 
+        "성별", 
+        "나이 (출생연도로 기입 부탁드립니다 ex. 98년생)", 
+        "관계 (ex 사촌동생, 학교 친구, 직장 동료, 본인)", 
+        "구체적인 기도제목 (가능한 경우 1. 2. 등 번호로 기입)"
+    ]
+    response_values = [headers] + prayer_requests
+    
+    service.spreadsheets().values().update(
+        spreadsheetId=SPREADSHEET_ID,
+        range=f"'{sheet_name}'!A1",
+        valueInputOption="RAW",
+        body={"values": response_values}
+    ).execute()
+    print("   ✅ '설문지 응답 시트1' 마이그레이션 완료")
+
 def main():
     notion_file = "extracted_notion_content.txt"
     if not os.path.exists(notion_file):
         print(f"❌ 텍스트 추출 파일을 찾을 수 없습니다: {notion_file}")
         return
         
-    common_prayers, assignments = parse_notion_text(notion_file)
+    common_prayers, assignments, prayer_requests = parse_notion_text(notion_file)
     
     if not common_prayers:
         print("❌ 공통 기도제목 파싱 결과가 비어있습니다. 업데이트를 중단합니다.")
         return
         
-    update_sheets(common_prayers, assignments)
-    print("\n🎉 노션 최신 버전 데이터를 성공적으로 구글 시트에 업데이트 완료했습니다!")
+    update_sheets(common_prayers, assignments, prayer_requests)
+    print("\n🎉 노션의 기존 기도제목 데이터를 구글 시트 '설문지 응답 시트1'에 완벽히 복구/이관 완료했습니다!")
 
 if __name__ == "__main__":
     main()

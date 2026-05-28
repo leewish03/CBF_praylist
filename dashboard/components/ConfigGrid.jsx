@@ -139,6 +139,15 @@ const ManagerName = styled.span`
   color: ${colors.primary};
   min-width: 60px;
   padding-top: 2px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: ${colors.primaryLight};
+    color: ${colors.primaryDark};
+  }
 `;
 
 const AssigneeTags = styled.div`
@@ -192,7 +201,8 @@ export default function ConfigGrid({
   commonPrayers,
   prayerSource,
   assignments,
-  assignSource
+  assignSource,
+  onManagerClick
 }) {
   const isSheetPrayer = prayerSource === 'google_sheets';
   const isSheetAssign = assignSource === 'google_sheets';
@@ -283,7 +293,9 @@ export default function ConfigGrid({
             <AssignmentTable>
               {managerEntries.map(([manager, assignees], idx) => (
                 <AssignmentRow key={manager} idx={idx}>
-                  <ManagerName>{manager}</ManagerName>
+                  <ManagerName onClick={() => onManagerClick && onManagerClick(manager)}>
+                    {manager}
+                  </ManagerName>
                   <AssigneeTags>
                     {assignees.length > 0 ? (
                       assignees.map((name, aIdx) => (

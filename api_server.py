@@ -76,7 +76,7 @@ async def get_status():
         "last_run": pipeline_state.get("last_run"),
         "unmapped_requesters": pipeline_state.get("unmapped_requesters", []),
         "config_source": pipeline_state.get("config_source", "unknown"),
-        "notion_page_id": os.getenv('NOTION_PAGE_ID', '1c50f7e0cd5f8025bb78c5c839f205f0'),
+        "notion_page_id": os.getenv('NOTION_PAGE_ID', '') if os.getenv('NOTION_TOKEN') else '',
         "timestamp": datetime.now().isoformat()
     }
 
@@ -124,6 +124,102 @@ async def trigger_pipeline(background_tasks: BackgroundTasks):
     return {
         "message": "파이프라인 실행이 시작되었습니다.",
         "triggered_at": datetime.now().isoformat()
+    }
+
+
+# ============================================================
+# 엔드포인트: GET /api/prayers
+# ============================================================
+@app.get("/api/prayers")
+async def get_prayers():
+    """
+    저장된/캐시된 기도제목 데이터를 반환합니다.
+    1. DATABASE_URL이 설정된 경우 데이터베이스에서 조회
+    2. 데이터베이스 조회가 안 되거나 없으면 로컬 prayers_data.json 파일 조회
+    3. 둘 다 없으면 실시간으로 구글 시트에서 직접 수집하여 반환 (폴백)
+    """
+    db_url = os.getenv('DATABASE_URL')
+    
+    # 1. 데이터베이스에서 조회 시도
+    if db_url:
+        try:
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+            
+            if db_url.startswith("postgres://"):
+                db_url = db_url.replace("postgres://", "postgresql://", 1)
+                
+            conn = psycopg2.connect(db_url)
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            
+            # 메타데이터 및 동기화 정보 로드
+            cur.execute("SELECT value FROM prayer_metadata WHERE key = 'sync_info';")
+            meta_row = cur.fetchone()
+            
+            # 개별 기도제목 로드
+            cur.execute("SELECT name, target_name, gender, age, relationship, prayer_content, church FROM prayers ORDER BY id ASC;")
+            prayers_rows = cur.fetchall()
+            
+            cur.close()
+            conn.close()
+            
+            # 데이터 구조 가공
+            # DB 데이터를 prayers_by_requester 형식으로 복원
+            prayers_by_requester = {}
+            for row in prayers_rows:
+                requester = row['name']
+                if requester not in prayers_by_requester:
+                    prayers_by_requester[requester] = []
+                prayers_by_requester[requester].append(dict(row))
+                
+            last_updated = datetime.now().strftime('%Y-%m-%d %H:%M')
+            if meta_row and 'value' in meta_row:
+                last_updated = meta_row['value'].get('last_updated', last_updated)
+                
+            return {
+                "source": "database",
+                "last_updated": last_updated,
+                "prayers_by_requester": prayers_by_requester
+            }
+        except Exception as e:
+            logger.warning(f"데이터베이스 조회 실패 (로컬 캐시/구글시트 조회를 시도합니다): {str(e)}")
+            
+    # 2. 로컬 캐시 파일 조회 시도
+    cache_file = 'prayers_data.json'
+    if os.path.exists(cache_file):
+        try:
+            import json
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return {
+                "source": "local_cache",
+                **data
+            }
+        except Exception as e:
+            logger.warning(f"로컬 캐시 파일 로드 실패 (실시간 조회를 시도합니다): {str(e)}")
+            
+    # 3. 구글 스프레드시트 실시간 수집 폴백
+    try:
+        from google_sheets import get_prayer_requests
+        from data_processor import process_prayer_requests
+        
+        logger.info("캐시 및 데이터베이스가 존재하지 않아 구글 스프레드시트 실시간 수집을 시도합니다.")
+        df = get_prayer_requests()
+        if df is not None:
+            processed_data = process_prayer_requests(df)
+            if processed_data:
+                return {
+                    "source": "realtime_fallback",
+                    **processed_data
+                }
+    except Exception as e:
+        logger.error(f"실시간 스프레드시트 조회 실패: {str(e)}")
+        
+    # 4. 최종 빈 상태 반환
+    return {
+        "source": "empty",
+        "last_updated": None,
+        "prayers_by_requester": {}
     }
 
 

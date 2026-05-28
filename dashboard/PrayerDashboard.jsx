@@ -18,6 +18,7 @@ import StatusBar from './components/StatusBar';
 import AlertBanner from './components/AlertBanner';
 import ConfigGrid from './components/ConfigGrid';
 import ConsolePanel from './components/ConsolePanel';
+import PrayersViewer from './components/PrayersViewer';
 
 // 글로벌 스타일 (Pretendard 폰트 포함)
 const GlobalStyle = createGlobalStyle`
@@ -62,6 +63,11 @@ export default function PrayerDashboard() {
   const [logsError, setLogsError]     = useState(null);           // 로그 통신 오류
   const [triggerMsg, setTriggerMsg]   = useState(null);           // 트리거 응답 메시지
   const [isConfigLoading, setIsConfigLoading] = useState(true);   // 설정 최초 로딩 상태
+
+  // Notion 제거 및 대시보드 뷰어용 상태 신설
+  const [prayersData, setPrayersData] = useState(null);           // /api/prayers 데이터
+  const [prayersError, setPrayersError] = useState(null);         // 기도제목 통신 오류
+  const [selectedManager, setSelectedManager] = useState('ALL');  // 필터링 담당자
 
   // ── API 요청 함수들 ──
 
@@ -110,6 +116,20 @@ export default function PrayerDashboard() {
     }
   }, []);
 
+  /** 수집된 기도제목 조회 (/api/prayers) */
+  const fetchPrayers = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/prayers`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setPrayersData(data);
+      setPrayersError(null);
+    } catch (err) {
+      console.error('[PrayerDashboard] prayers fetch error:', err);
+      setPrayersError('기도제목 데이터를 가져오지 못했습니다.');
+    }
+  }, []);
+
   /** 파이프라인 트리거 시작 */
   const handleTrigger = useCallback(async () => {
     if (isTriggering || status?.status === 'RUNNING') return;
@@ -128,7 +148,10 @@ export default function PrayerDashboard() {
       } else {
         setTriggerMsg({ type: 'success', text: data.message || '파이프라인 실행이 시작되었습니다.' });
         // 즉시 상태 리프레시
-        setTimeout(fetchStatus, 800);
+        setTimeout(() => {
+          fetchStatus();
+          fetchPrayers();
+        }, 800);
       }
     } catch (err) {
       console.error('[PrayerDashboard] trigger error:', err);
@@ -143,17 +166,21 @@ export default function PrayerDashboard() {
     fetchStatus();
     fetchConfig();
     fetchLogs();
+    fetchPrayers();
 
     // 3초 간격 상태 조회
     const statusInterval = setInterval(fetchStatus, 3000);
     // 5초 간격 로그 스트리밍
     const logsInterval = setInterval(fetchLogs, 5000);
+    // 10초 간격 기도제목 수집 조회
+    const prayersInterval = setInterval(fetchPrayers, 10000);
 
     return () => {
       clearInterval(statusInterval);
       clearInterval(logsInterval);
+      clearInterval(prayersInterval);
     };
-  }, [fetchStatus, fetchConfig, fetchLogs]);
+  }, [fetchStatus, fetchConfig, fetchLogs, fetchPrayers]);
 
   // ── 트리거 완료 메시지 5초 자동 소거 ──
   useEffect(() => {
@@ -168,8 +195,8 @@ export default function PrayerDashboard() {
   const lastRun        = status?.last_run;
   const configSource   = status?.config_source;
   const unmapped       = status?.unmapped_requesters || [];
-  const notionPageId   = status?.notion_page_id || '1c50f7e0cd5f8025bb78c5c839f205f0';
-  const notionPageUrl  = `https://notion.so/${notionPageId.replace(/-/g, '')}`;
+  const notionPageId   = status?.notion_page_id;
+  const notionPageUrl  = notionPageId ? `https://notion.so/${notionPageId.replace(/-/g, '')}` : null;
 
   const commonPrayers  = configData?.common_prayers?.data || [];
   const prayerSource   = configData?.common_prayers?.source;
@@ -215,6 +242,14 @@ export default function PrayerDashboard() {
         {/* ── 담당자 미배정 제출자 에러 배너 ── */}
         <AlertBanner unmappedRequesters={unmapped} />
 
+        {/* ── 실제 수집된 기도제목 뷰어 (Notion 대체) ── */}
+        <PrayersViewer
+          prayersData={prayersData}
+          assignments={assignments}
+          selectedManager={selectedManager}
+          setSelectedManager={setSelectedManager}
+        />
+
         {/* ── 공통기도 & 담당자 배정 카드 그리드 ── */}
         <ConfigGrid
           isConfigLoading={isConfigLoading}
@@ -223,6 +258,7 @@ export default function PrayerDashboard() {
           prayerSource={prayerSource}
           assignments={assignments}
           assignSource={assignSource}
+          onManagerClick={setSelectedManager}
         />
 
         {/* ── 실시간 로그 터미널 ── */}

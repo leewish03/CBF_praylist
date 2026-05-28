@@ -143,11 +143,14 @@ def generate_pipeline_report(processed_data, execution_time, assignments):
     
     return report, unmapped
 
-def validate_environment_for_pipeline():
-    """파이프라인 실행을 위한 환경 변수 검증 (Notion 필수)"""
+def validate_environment_for_pipeline(require_notion=False):
+    """파이프라인 실행을 위한 환경 변수 검증 (Notion 선택 사항화)"""
     import os
     
-    required_vars = ['SPREADSHEET_ID', 'NOTION_TOKEN', 'NOTION_PAGE_ID']
+    required_vars = ['SPREADSHEET_ID']
+    if require_notion:
+        required_vars.extend(['NOTION_TOKEN', 'NOTION_PAGE_ID'])
+        
     missing_vars = []
     for var in required_vars:
         if not os.getenv(var):
@@ -158,6 +161,100 @@ def validate_environment_for_pipeline():
     
     logger = logging.getLogger(__name__)
     logger.info("환경변수 검증 완료")
+
+import json
+
+def save_prayers_to_local_cache(processed_data):
+    """로컬 json 파일로 기도제목 데이터를 저장합니다."""
+    logger = logging.getLogger(__name__)
+    cache_file = 'prayers_data.json'
+    try:
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            json.dump(processed_data, f, ensure_ascii=False, indent=2)
+        logger.info(f"로컬 JSON 캐시 저장 성공: {cache_file}")
+    except Exception as e:
+        logger.error(f"로컬 JSON 캐시 저장 실패: {str(e)}")
+        
+def save_prayers_to_db(processed_data, common_prayers, assignments):
+    """PostgreSQL 데이터베이스가 설정되어 있을 때 데이터를 저장하고 캐싱합니다."""
+    logger = logging.getLogger(__name__)
+    db_url = os.getenv('DATABASE_URL')
+    if not db_url:
+        logger.info("DATABASE_URL이 설정되지 않아 데이터베이스 저장을 생략합니다.")
+        return
+    
+    # Render postgresql scheme 대응
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+        
+    try:
+        import psycopg2
+        from psycopg2.extras import Json
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        
+        # 1. 테이블 DDL 자동 생성
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS prayers (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100),
+                target_name VARCHAR(100),
+                gender VARCHAR(20),
+                age VARCHAR(50),
+                relationship VARCHAR(100),
+                prayer_content TEXT,
+                church VARCHAR(100),
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS prayer_metadata (
+                key VARCHAR(50) PRIMARY KEY,
+                value JSONB,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
+        
+        # 2. 기존 개별 기도제목 데이터 제거 및 신규 삽입
+        cur.execute("TRUNCATE TABLE prayers;")
+        
+        count = 0
+        for requester, items in processed_data.get('prayers_by_requester', {}).items():
+            for item in items:
+                cur.execute("""
+                    INSERT INTO prayers (name, target_name, gender, age, relationship, prayer_content, church)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                """, (
+                    item.get('name', ''),
+                    item.get('target_name', ''),
+                    item.get('gender', ''),
+                    item.get('age', ''),
+                    item.get('relationship', ''),
+                    item.get('prayer_content', ''),
+                    item.get('church', '')
+                ))
+                count += 1
+                
+        # 3. 메타데이터 저장 (공통기도제목, 담당자 매핑, 마지막 동기화 등)
+        metadata = {
+            'last_updated': processed_data.get('last_updated'),
+            'common_prayers': common_prayers,
+            'assignments': assignments
+        }
+        cur.execute("""
+            INSERT INTO prayer_metadata (key, value, updated_at)
+            VALUES ('sync_info', %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (key) DO UPDATE 
+            SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP;
+        """, (Json(metadata),))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"데이터베이스 저장 완료: 총 {count}개 기도제목 삽입됨.")
+    except Exception as e:
+        logger.error(f"데이터베이스 저장 중 오류 발생: {str(e)}")
 
 def run_pipeline():
     """
@@ -177,10 +274,11 @@ def run_pipeline():
         logger.info("CBF 기도제목 자동화 파이프라인 시작")
         logger.info("="*50)
         
-        # 1. 설정 검증 (Notion 필수)
+        # 1. 설정 검증 (Notion 필수 해제)
         logger.info("1️⃣ 설정 및 환경변수 검증")
-        config.validate(require_notion=True)
-        validate_environment_for_pipeline()
+        has_notion = config.notion.is_configured
+        config.validate(require_notion=False)
+        validate_environment_for_pipeline(require_notion=False)
         
         # 2. 동적 설정 로드 (구글 시트에서)
         logger.info("2️⃣ 구글 시트에서 설정 데이터 로드")
@@ -211,9 +309,20 @@ def run_pipeline():
         if processed_data is None:
             raise PipelineError("데이터 처리 중 오류가 발생했습니다")
         
-        # 5. Notion 게시
-        logger.info("5️⃣ Notion 페이지 업데이트")
-        publish_with_retry(processed_data, common_prayers=common_prayers, assignments=assignments)
+        # 5. Notion 게시 (설정된 경우에만 진행)
+        if has_notion:
+            logger.info("5️⃣ Notion 페이지 업데이트")
+            try:
+                publish_with_retry(processed_data, common_prayers=common_prayers, assignments=assignments)
+            except Exception as notion_err:
+                logger.warning(f"Notion 업데이트 실패 (진행은 계속됩니다): {str(notion_err)}")
+        else:
+            logger.info("5️⃣ Notion 설정이 없어 Notion 업데이트 단계를 건너뜁니다.")
+            
+        # 5-2. 로컬 캐시 및 데이터베이스 저장
+        logger.info("5️⃣-2 로컬 캐시 및 데이터베이스 동기화 저장")
+        save_prayers_to_local_cache(processed_data)
+        save_prayers_to_db(processed_data, common_prayers, assignments)
         
         # 6. 실행 보고서
         execution_time = (datetime.now() - start_time).total_seconds()
@@ -248,6 +357,7 @@ def run_pipeline():
     finally:
         execution_time = (datetime.now() - start_time).total_seconds()
         logger.info(f"파이프라인 종료 (실행시간: {execution_time:.2f}초)")
+
 
 def main():
     """메인 함수 (CLI 직접 실행용)"""

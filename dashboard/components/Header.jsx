@@ -93,13 +93,15 @@ export default function Header({ notionPageUrl }) {
           <p>Google Sheets → Notion 자동 동기화 파이프라인</p>
         </HeaderText>
       </HeaderTitle>
-      <NotionButton
-        href={notionPageUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        📓 Notion 페이지 열기
-      </NotionButton>
+      {notionPageUrl && (
+        <NotionButton
+          href={notionPageUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          📓 Notion 페이지 열기
+        </NotionButton>
+      )}
     </HeaderWrapper>
   );
 }

@@ -9,8 +9,13 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import styled, { createGlobalStyle } from 'styled-components';
+import styled, { createGlobalStyle, keyframes } from 'styled-components';
 import colors from './styles/colors';
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0);    }
+`;
 
 // 서브컴포넌트 임포트
 import Header from './components/Header';

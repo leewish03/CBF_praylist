@@ -52,6 +52,133 @@ const ContainerWrapper = styled.div`
 // Vite/CRA 빌드 시 process.env 또는 import.meta.env를 사용해 동적으로 바인딩 가능
 const API_BASE_URL = process.env.REACT_APP_API_URL || ''; 
 
+const AuthCardWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 20px;
+  animation: ${fadeIn} 0.35s ease;
+`;
+
+const AuthCard = styled.div`
+  width: 100%;
+  max-width: 360px;
+  background: ${colors.cardBg};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+`;
+
+const LockIcon = styled.div`
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: ${colors.primaryLight};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  margin-bottom: 16px;
+  border: 1px solid ${colors.primary}22;
+`;
+
+const AuthTitle = styled.h2`
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: ${colors.textPrimary};
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+`;
+
+const AuthSub = styled.p`
+  font-size: 0.78rem;
+  color: ${colors.textSecondary};
+  margin-bottom: 20px;
+  line-height: 1.4;
+`;
+
+const AuthForm = styled.form`
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const PasswordInput = styled.input`
+  width: 100%;
+  border: 1px solid ${colors.border};
+  background: ${colors.cardBg};
+  color: ${colors.textPrimary};
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  text-align: center;
+  outline: none;
+  letter-spacing: 0.2em;
+  font-weight: bold;
+  transition: all 0.15s ease-in-out;
+
+  &:focus {
+    border-color: ${colors.primary};
+    box-shadow: 0 0 0 2px ${colors.primary}22;
+  }
+`;
+
+const AuthError = styled.p`
+  font-size: 0.75rem;
+  color: ${colors.danger};
+  font-weight: 500;
+  margin-top: 4px;
+`;
+
+const AuthBtnContainer = styled.div`
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+`;
+
+const AuthButton = styled.button`
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  letter-spacing: -0.01em;
+
+  ${({ variant }) => variant === 'primary' && `
+    background: ${colors.primary};
+    color: #fff;
+    border: 1px solid ${colors.primary};
+    
+    &:hover {
+      background: ${colors.primaryDark};
+      border-color: ${colors.primaryDark};
+    }
+  `}
+
+  ${({ variant }) => variant === 'outline' && `
+    background: ${colors.cardBg};
+    color: ${colors.textPrimary};
+    border: 1px solid ${colors.border};
+    
+    &:hover {
+      background: ${colors.bg};
+    }
+  `}
+`;
+
 export default function PrayerDashboard() {
   // ── 라우팅 상태 ──
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -70,6 +197,13 @@ export default function PrayerDashboard() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // ── 관리자 권한 인증 상태 ──
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
+    return sessionStorage.getItem('admin_auth') === 'true';
+  });
+  const [passwordInput, setPasswordInput] = useState('');
+  const [authError, setAuthError] = useState('');
 
   // ── 상태 관리 ──
   const [status, setStatus]           = useState(null);           // /api/status 데이터
@@ -179,6 +313,25 @@ export default function PrayerDashboard() {
     }
   }, [isTriggering, status?.status, fetchStatus]);
 
+  // ── 관리자 비밀번호 검증 ──
+  const handleAuthSubmit = (e) => {
+    e.preventDefault();
+    if (passwordInput === '1217') {
+      setIsAdminAuthenticated(true);
+      sessionStorage.setItem('admin_auth', 'true');
+      setAuthError('');
+      setPasswordInput('');
+    } else {
+      setAuthError('비밀번호가 올바르지 않습니다.');
+    }
+  };
+
+  const handleAuthCancel = () => {
+    setAuthError('');
+    setPasswordInput('');
+    navigate('/'); // 안전하게 일반 화면으로 리다이렉트
+  };
+
   // ── 생명주기 및 폴링 설정 ──
   useEffect(() => {
     fetchStatus();
@@ -222,6 +375,7 @@ export default function PrayerDashboard() {
   const assignSource   = configData?.assignments?.source;
 
   const isAdmin = currentPath === '/admin';
+  const showAdminAuth = isAdmin && !isAdminAuthenticated;
 
   return (
     <>
@@ -230,8 +384,38 @@ export default function PrayerDashboard() {
         {/* ── 헤더 ── */}
         <Header notionPageUrl={notionPageUrl} isAdmin={isAdmin} onNavigate={navigate} />
 
-        {isAdmin ? (
-          // ⚙️ 관리자용 페이지 뷰
+        {showAdminAuth ? (
+          // 🔒 관리자 페이지 비밀번호 입력 모달/카드
+          <AuthCardWrapper>
+            <AuthCard>
+              <LockIcon>🔒</LockIcon>
+              <AuthTitle>관리자 인증 필요</AuthTitle>
+              <AuthSub>
+                관리자 도구에 진입하려면 설정된 비밀번호를 입력해 주십시오.
+              </AuthSub>
+              <AuthForm onSubmit={handleAuthSubmit}>
+                <PasswordInput
+                  type="password"
+                  placeholder="••••"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  maxLength={10}
+                  autoFocus
+                />
+                {authError && <AuthError>{authError}</AuthError>}
+                <AuthBtnContainer>
+                  <AuthButton type="button" variant="outline" onClick={handleAuthCancel}>
+                    취소
+                  </AuthButton>
+                  <AuthButton type="submit" variant="primary">
+                    인증하기
+                  </AuthButton>
+                </AuthBtnContainer>
+              </AuthForm>
+            </AuthCard>
+          </AuthCardWrapper>
+        ) : isAdmin ? (
+          // ⚙️ 관리자용 페이지 뷰 (인증 완료 시)
           <>
             {/* 상태 정보 바 */}
             <StatusBar

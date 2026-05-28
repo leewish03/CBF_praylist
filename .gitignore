@@ -10,7 +10,7 @@ dist/
 build/
 debug_*
 scratch_*
-*.html
+notion_html.html
 *.png
 extracted_notion_content.txt
 

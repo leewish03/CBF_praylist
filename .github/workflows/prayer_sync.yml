@@ -1,0 +1,62 @@
+name: Daily Prayer Sync Pipeline
+
+on:
+  schedule:
+    # 매일 오전 6시 & 오후 6시 (KST) 자동 실행 설정
+    # KST 오전 6시 = UTC 21시 (전날)
+    # KST 오후 6시 = UTC 9시
+    - cron: '0 9,21 * * *'
+  workflow_dispatch: # GitHub 웹 UI에서 언제든 수동으로 실행 가능
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        # 변경된 json 파일을 다시 push하기 위해 권한 있는 토큰 활용 (기본 GITHUB_TOKEN 사용)
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Restore Google Service Account Key File
+      run: |
+        echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > cbf-praylist-11bbf27f1baa.json
+
+    - name: Run sync pipeline
+      env:
+        SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+        RANGE_NAME: "'설문지 응답 시트1'!A:Z"
+        SERVICE_ACCOUNT_FILE: "cbf-praylist-11bbf27f1baa.json"
+        # 노션을 안 쓰는 경우 빈 값으로 유지 가능
+        NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
+        LOG_LEVEL: "INFO"
+      run: |
+        python main.py
+
+    - name: Commit and Push updated prayers_data.json
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # prayers_data.json 파일의 변경점이 있는지 체크
+        if git status --porcelain | grep -q "prayers_data.json"; then
+          git add prayers_data.json
+          git commit -m "chore: auto-update prayers_data.json via GitHub Actions"
+          git push
+          echo "Changes pushed to repository."
+        else
+          echo "No changes in prayers_data.json. Skipping push."
+        fi

@@ -1,585 +1,1628 @@
 /**
- * PrayerDashboard.jsx
- * CBF 기도제목 자동화 V2 - 메인 대시보드 컨테이너 컴포넌트
+ * PrayerDashboard.jsx  – CBF 기도제목 자동화 V2 대시보드 (전면 재작성)
  *
- * 역할:
- * - 상태(status, config, logs)를 API로부터 주기적 폴링 및 관리
- * - 수동 트리거 요청 관리
- * - 모듈식으로 분할된 서브컴포넌트(Header, StatusBar, AlertBanner, ConfigGrid, ConsolePanel) 조립
+ * ─ 주요 기능 ─
+ * 1. 일반 사용자 PIN 인증 오버레이 (비밀번호: '0691', sessionStorage)
+ * 2. 관리자 모드 인증 카드  (비밀번호: '1217', URL에 '/admin' 포함 시 활성)
+ * 3. shadcn UI 스타일 탭 스위처 (사용자 2탭 / 관리자 3탭)
+ * 4. 개별 기도제목 – 담당자 필터(selectedManager) localStorage 캐싱 + 무결성 검증
+ * 5. Forest Green 컬러 시스템, micro-animation, 3s/5s 폴링
+ *
+ * ─ API 경로 (모두 /api 접두사) ─
+ *   GET  /api/status   – 파이프라인 상태 (notion_page_id 포함)
+ *   POST /api/trigger  – 파이프라인 실행 (202 Accepted)
+ *   GET  /api/config   – 설정 데이터 (공통 기도제목 + 담당자 배정)
+ *   GET  /api/prayers  – 기도제목 데이터 (prayers_by_requester + assignments)
+ *   GET  /api/logs     – 로그 파일 마지막 N줄
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import styled, { createGlobalStyle, keyframes } from 'styled-components';
-import colors from './styles/colors';
+import React, {
+  useState, useEffect, useRef, useCallback, useMemo
+} from 'react';
+import styled, { keyframes, createGlobalStyle, css } from 'styled-components';
 
+// ─────────────────────────────────────────────
+// 상수 정의
+// ─────────────────────────────────────────────
+const PIN_USER          = '0691';        // 일반 사용자 PIN
+const PIN_ADMIN         = '1217';        // 관리자 PIN
+const SESSION_USER_KEY  = 'cbf_user_auth';   // sessionStorage 키 (일반)
+const SESSION_ADMIN_KEY = 'cbf_admin_auth';  // sessionStorage 키 (관리자)
+const LS_MANAGER_KEY    = 'cbf_selected_manager'; // localStorage 키 (필터)
+const NOTION_FALLBACK   = '1c50f7e0cd5f8025bb78c5c839f205f0';
+
+/** 가상 키패드 레이아웃 (3 × 4) */
+const KEYPAD_ROWS = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+  ['C', '0', '⌫'],
+];
+
+// ─────────────────────────────────────────────
+// 컬러 시스템 (Forest Green + shadcn 토큰)
+// ─────────────────────────────────────────────
+const c = {
+  // ── Forest Green 팔레트 ──
+  primary:       'hsl(142, 35%, 28%)',
+  primaryDark:   'hsl(142, 40%, 20%)',
+  primaryLight:  'hsl(142, 20%, 95%)',
+  primaryMid:    'hsl(142, 25%, 45%)',
+
+  // ── 시멘틱 ──
+  success:       'hsl(95, 38%, 45%)',
+  successLight:  'hsl(95, 40%, 92%)',
+  danger:        'hsl(0, 75%, 60%)',
+  dangerLight:   'hsl(0, 70%, 95%)',
+  warning:       'hsl(38, 90%, 50%)',
+  warningLight:  'hsl(38, 90%, 94%)',
+  info:          'hsl(210, 70%, 52%)',
+  infoLight:     'hsl(210, 80%, 95%)',
+
+  // ── 상태 ──
+  idle:          'hsl(220, 10%, 55%)',
+  idleLight:     'hsl(220, 15%, 93%)',
+  running:       'hsl(210, 70%, 52%)',
+  runningLight:  'hsl(210, 80%, 93%)',
+
+  // ── shadcn 토큰 ──
+  border:        'hsl(240, 5.9%, 90%)',   // 얇은 회색 테두리
+  shadow:        'rgba(0, 0, 0, 0.05)',   // 미세 하단 그림자
+
+  // ── 레이아웃 ──
+  bg:            'hsl(142, 8%, 97%)',
+  cardBg:        'hsl(0, 0%, 100%)',
+
+  // ── 텍스트 ──
+  textPrimary:   'hsl(220, 15%, 15%)',
+  textSecondary: 'hsl(220, 10%, 50%)',
+  textMuted:     'hsl(220, 10%, 70%)',
+
+  // ── 콘솔 ──
+  bgConsole:     'hsl(210, 15%, 15%)',
+  consoleText:   'hsl(120, 100%, 75%)',
+  consoleGray:   'hsl(220, 10%, 65%)',
+
+  // ── PIN 오버레이 ──
+  overlayBg:     'hsla(142, 30%, 10%, 0.75)',
+};
+
+// ─────────────────────────────────────────────
+// 애니메이션
+// ─────────────────────────────────────────────
+const spin = keyframes`
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+`;
+const pulse = keyframes`
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.7; transform: scale(1.02); }
+`;
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+const fadeInUp = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+const slideIn = keyframes`
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+`;
+const shake = keyframes`
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-8px); }
+  30%       { transform: translateX(8px); }
+  45%       { transform: translateX(-6px); }
+  60%       { transform: translateX(6px); }
+  75%       { transform: translateX(-4px); }
+  90%       { transform: translateX(4px); }
+`;
+const fadeOut = keyframes`
+  from { opacity: 1; }
+  to   { opacity: 0; transform: scale(1.03); }
+`;
+const tabFadeIn = keyframes`
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 `;
 
-// 서브컴포넌트 임포트
-import Header from './components/Header';
-import StatusBar from './components/StatusBar';
-import AlertBanner from './components/AlertBanner';
-import ConfigGrid from './components/ConfigGrid';
-import ConsolePanel from './components/ConsolePanel';
-import PrayersViewer from './components/PrayersViewer';
-
-// 글로벌 스타일 (Pretendard 폰트 포함)
+// ─────────────────────────────────────────────
+// 글로벌 스타일
+// ─────────────────────────────────────────────
 const GlobalStyle = createGlobalStyle`
   @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
 
-  *, *::before, *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background-color: ${colors.bg};
-    color: hsl(220, 15%, 20%);
+    background: ${c.bg};
+    color: ${c.textPrimary};
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
+
+  button { font-family: inherit; }
 `;
 
-const ContainerWrapper = styled.div`
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px 20px 48px;
-
-  @media (max-width: 768px) {
-    padding: 16px 12px 40px;
-  }
+// ─────────────────────────────────────────────
+// 공통 카드 믹스인
+// ─────────────────────────────────────────────
+const cardStyle = css`
+  background: ${c.cardBg};
+  border: 1px solid ${c.border};
+  box-shadow: 0 1px 2px 0 ${c.shadow};
+  border-radius: 14px;
+  overflow: hidden;
 `;
 
-// API 서버 베이스 URL 설정
-// Vite/CRA 빌드 시 process.env 또는 import.meta.env를 사용해 동적으로 바인딩 가능
-const API_BASE_URL = process.env.REACT_APP_API_URL || ''; 
-
-const AuthCardWrapper = styled.div`
+// ─────────────────────────────────────────────
+// PIN 오버레이 styled-components
+// ─────────────────────────────────────────────
+const Overlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: ${c.overlayBg};
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
-  padding: 20px;
-  animation: ${fadeIn} 0.35s ease;
+  z-index: 9999;
+  animation: ${({ fadeout }) => fadeout === 'true' ? css`${fadeOut} 0.5s ease forwards` : css`${fadeIn} 0.4s ease`};
 `;
 
-const AuthCard = styled.div`
-  width: 100%;
-  max-width: 360px;
-  background: ${colors.cardBg};
-  border: 1px solid ${colors.border};
-  border-radius: 8px;
-  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
-  padding: 24px;
+const PinCard = styled.div`
+  background: ${c.cardBg};
+  border: 1px solid ${c.border};
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  padding: 36px 32px 28px;
+  width: 320px;
+  max-width: calc(100vw - 32px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
+  gap: 20px;
+  animation: ${({ shaking }) => shaking === 'true' ? css`${shake} 0.4s ease` : 'none'};
 `;
 
-const LockIcon = styled.div`
-  width: 48px;
-  height: 48px;
+const PinTitle = styled.div`
+  text-align: center;
+
+  h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: ${c.primary};
+    margin-bottom: 4px;
+  }
+
+  p {
+    font-size: 0.78rem;
+    color: ${c.textSecondary};
+  }
+`;
+
+const PinDisplay = styled.div`
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+`;
+
+const PinDot = styled.span`
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: ${colors.primaryLight};
+  background: ${({ filled }) => filled ? c.primary : c.border};
+  transition: background 0.15s, transform 0.15s;
+  transform: ${({ filled }) => filled ? 'scale(1.15)' : 'scale(1)'};
+`;
+
+const PinError = styled.p`
+  font-size: 0.78rem;
+  color: ${c.danger};
+  text-align: center;
+  min-height: 18px;
+  font-weight: 500;
+`;
+
+const KeypadGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+`;
+
+const KeypadBtn = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
-  margin-bottom: 16px;
-  border: 1px solid ${colors.primary}22;
+  height: 52px;
+  border-radius: 10px;
+  font-size: ${({ isSpecial }) => isSpecial ? '0.8rem' : '1.2rem'};
+  font-weight: ${({ isSpecial }) => isSpecial ? '500' : '600'};
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  border: 1px solid ${c.border};
+  box-shadow: 0 1px 2px 0 ${c.shadow};
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  /* 숫자 버튼 */
+  background: ${({ variant }) =>
+    variant === 'clear' ? c.dangerLight :
+    variant === 'back'  ? c.warningLight :
+    c.bg};
+  color: ${({ variant }) =>
+    variant === 'clear' ? c.danger :
+    variant === 'back'  ? c.warning :
+    c.textPrimary};
+
+  &:hover:not(:disabled) {
+    background: ${({ variant }) =>
+      variant === 'clear' ? 'hsl(0, 70%, 90%)' :
+      variant === 'back'  ? 'hsl(38, 90%, 88%)' :
+      c.primaryLight};
+    color: ${({ variant }) =>
+      variant === 'clear' ? c.danger :
+      variant === 'back'  ? c.warning :
+      c.primary};
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+    box-shadow: none;
+  }
 `;
 
-const AuthTitle = styled.h2`
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: ${colors.textPrimary};
-  margin-bottom: 6px;
-  letter-spacing: -0.01em;
+// ─────────────────────────────────────────────
+// 레이아웃
+// ─────────────────────────────────────────────
+const Wrapper = styled.div`
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 56px;
+
+  @media (max-width: 768px) {
+    padding: 14px 12px 48px;
+  }
 `;
 
-const AuthSub = styled.p`
-  font-size: 0.78rem;
-  color: ${colors.textSecondary};
+const Header = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 20px;
-  line-height: 1.4;
+  padding: 18px 24px;
+  background: ${c.primary};
+  border-radius: 16px;
+  box-shadow: 0 4px 20px hsla(142, 35%, 28%, 0.25);
+  animation: ${fadeIn} 0.4s ease;
+
+  @media (max-width: 768px) {
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
 `;
 
-const AuthForm = styled.form`
-  width: 100%;
+const HeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const HeaderEmoji = styled.span`
+  font-size: 2rem;
+`;
+
+const HeaderText = styled.div`
+  h1 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+    
+    @media (max-width: 768px) { font-size: 1rem; }
+  }
+  p {
+    font-size: 0.75rem;
+    color: hsla(0, 0%, 100%, 0.72);
+    margin-top: 2px;
+  }
+`;
+
+const NotionLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: hsla(0, 0%, 100%, 0.15);
+  color: #fff;
+  border: 1px solid hsla(0, 0%, 100%, 0.3);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s;
+  white-space: nowrap;
+
+  &:hover {
+    background: hsla(0, 0%, 100%, 0.25);
+    border-color: hsla(0, 0%, 100%, 0.5);
+  }
+  &:active { transform: scale(0.96); }
+`;
+
+// ─────────────────────────────────────────────
+// 탭 스위처 (shadcn UI 스타일)
+// ─────────────────────────────────────────────
+const TabsContainer = styled.div`
+  margin-bottom: 20px;
+  animation: ${fadeIn} 0.35s ease;
+`;
+
+const TabsList = styled.div`
+  display: inline-flex;
+  background: hsl(220, 10%, 93%);
+  border: 1px solid ${c.border};
+  border-radius: 10px;
+  padding: 4px;
+  gap: 2px;
+  flex-wrap: wrap;
+`;
+
+const TabsTrigger = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 7px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.1s;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  ${({ active }) => active ? css`
+    background: ${c.primary};
+    color: #fff;
+    box-shadow: 0 2px 8px hsla(142, 35%, 28%, 0.25);
+  ` : css`
+    background: transparent;
+    color: ${c.textSecondary};
+
+    &:hover { background: hsla(0,0%,100%,0.6); color: ${c.textPrimary}; }
+  `}
+
+  &:active { transform: scale(0.96); }
+`;
+
+const TabsContent = styled.div`
+  display: ${({ active }) => active ? 'block' : 'none'};
+  animation: ${tabFadeIn} 0.3s ease;
+`;
+
+// ─────────────────────────────────────────────
+// 상태 바
+// ─────────────────────────────────────────────
+const StatusCard = styled.div`
+  ${cardStyle}
+  margin-bottom: 16px;
+  animation: ${fadeIn} 0.35s ease;
+`;
+
+const StatusInner = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 20px;
+`;
+
+const StatusLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+`;
+
+const statusMap = {
+  IDLE:    { bg: c.idleLight,    fg: c.idle,    label: '대기 중' },
+  RUNNING: { bg: c.runningLight, fg: c.running, label: '실행 중' },
+  SUCCESS: { bg: c.successLight, fg: c.success, label: '완료' },
+  ERROR:   { bg: c.dangerLight,  fg: c.danger,  label: '오류' },
+};
+
+const StatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.3s;
+  background: ${({ s }) => statusMap[s]?.bg || c.idleLight};
+  color:      ${({ s }) => statusMap[s]?.fg || c.idle};
+  border: 1px solid ${({ s }) => (statusMap[s]?.fg || c.idle) + '33'};
+`;
+
+const Spinner = styled.span`
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ${spin} 0.65s linear infinite;
+`;
+
+const StatusDot = styled.span`
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+`;
+
+const SmallText = styled.p`
+  font-size: 0.78rem;
+  color: ${c.textSecondary};
+`;
+
+const TriggerBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: ${({ $disabled }) => $disabled ? c.idleLight : c.primary};
+  color: ${({ $disabled }) => $disabled ? c.idle : '#fff'};
+  border: none;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: ${({ $disabled }) => $disabled ? 'not-allowed' : 'pointer'};
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: ${({ $disabled }) => $disabled ? 'none' : `0 3px 10px hsla(142, 35%, 28%, 0.3)`};
+
+  &:hover:not([disabled]) {
+    background: ${c.primaryDark};
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px hsla(142, 35%, 28%, 0.35);
+  }
+  &:active:not([disabled]) {
+    transform: scale(0.96);
+    box-shadow: none;
+  }
+`;
+
+// ─────────────────────────────────────────────
+// 경고 배너
+// ─────────────────────────────────────────────
+const AlertBanner = styled.div`
+  display: ${({ $show }) => $show ? 'flex' : 'none'};
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  background: ${c.dangerLight};
+  border: 1px solid ${c.danger}55;
+  border-left: 4px solid ${c.danger};
+  border-radius: 10px;
+  margin-bottom: 16px;
+  animation: ${pulse} 2.5s ease-in-out infinite, ${fadeIn} 0.35s ease;
+`;
+
+// ─────────────────────────────────────────────
+// 공통 카드
+// ─────────────────────────────────────────────
+const Card = styled.div`
+  ${cardStyle}
+  animation: ${fadeIn} 0.35s ease;
+`;
+
+const CardHead = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+  border-bottom: 1px solid ${c.border};
+  background: ${c.primaryLight};
+
+  h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: ${c.primary};
+  }
+`;
+
+const CardBody = styled.div`
+  padding: 18px;
+`;
+
+const SourceTag = styled.span`
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: ${({ $sheet }) => $sheet ? c.successLight : c.warningLight};
+  color:      ${({ $sheet }) => $sheet ? c.success : c.warning};
+  border: 1px solid ${({ $sheet }) => $sheet ? c.success + '44' : c.warning + '44'};
+`;
+
+// ─────────────────────────────────────────────
+// 2열 그리드
+// ─────────────────────────────────────────────
+const TwoCol = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+`;
+
+// ─────────────────────────────────────────────
+// 공통 기도제목
+// ─────────────────────────────────────────────
+const PrayerList = styled.ol`
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const PrayerItem = styled.li`
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  background: ${c.primaryLight};
+  border-left: 3px solid ${c.primary};
+  border-radius: 8px;
+  animation: ${slideIn} 0.3s ease both;
+  animation-delay: ${({ $i }) => $i * 0.05}s;
+`;
+
+const PNum = styled.span`
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: ${c.primary};
+  min-width: 16px;
+  padding-top: 2px;
+`;
+
+const PText = styled.p`
+  font-size: 0.82rem;
+  line-height: 1.65;
+  white-space: pre-line;
+  color: ${c.textPrimary};
+`;
+
+// ─────────────────────────────────────────────
+// 담당자 배정 테이블
+// ─────────────────────────────────────────────
+const AssignRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: ${c.bg};
+  border: 1px solid ${c.border};
+  border-radius: 8px;
+  transition: box-shadow 0.2s;
+  animation: ${slideIn} 0.3s ease both;
+  animation-delay: ${({ $i }) => $i * 0.04}s;
+
+  &:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+`;
+
+const ManagerName = styled.span`
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: ${c.primary};
+  min-width: 54px;
+  padding-top: 2px;
+`;
+
+const Tags = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+`;
+
+const Tag = styled.span`
+  padding: 2px 8px;
+  background: ${c.primaryLight};
+  color: ${c.primaryDark};
+  border: 1px solid ${c.border};
+  border-radius: 12px;
+  font-size: 0.73rem;
+  font-weight: 500;
+`;
+
+// ─────────────────────────────────────────────
+// 개별 기도제목 – 담당자 필터
+// ─────────────────────────────────────────────
+const FilterBar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+`;
+
+const FilterBtn = styled.button`
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid ${({ $active }) => $active ? c.primary : c.border};
+  background: ${({ $active }) => $active ? c.primary : c.cardBg};
+  color: ${({ $active }) => $active ? '#fff' : c.textSecondary};
+  transition: all 0.15s;
+
+  &:hover:not([disabled]) {
+    border-color: ${c.primary};
+    color: ${({ $active }) => $active ? '#fff' : c.primary};
+  }
+  &:active { transform: scale(0.96); }
+`;
+
+// ─────────────────────────────────────────────
+// 개별 기도제목 카드
+// ─────────────────────────────────────────────
+const PrayerCardGrid = styled.div`
   display: flex;
   flex-direction: column;
   gap: 12px;
 `;
 
-const PasswordInput = styled.input`
-  width: 100%;
-  border: 1px solid ${colors.border};
-  background: ${colors.cardBg};
-  color: ${colors.textPrimary};
-  border-radius: 6px;
-  padding: 10px 12px;
-  font-size: 0.85rem;
-  text-align: center;
-  outline: none;
-  letter-spacing: 0.2em;
-  font-weight: bold;
-  transition: all 0.15s ease-in-out;
+const PrayerCardWrap = styled.div`
+  ${cardStyle}
+  padding: 16px 18px;
+  animation: ${fadeInUp} 0.3s ease both;
+  animation-delay: ${({ $i }) => Math.min($i * 0.03, 0.3)}s;
+`;
 
-  &:focus {
-    border-color: ${colors.primary};
-    box-shadow: 0 0 0 2px ${colors.primary}22;
+const PrayerCardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+`;
+
+const PrayerTarget = styled.h4`
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: ${c.textPrimary};
+`;
+
+const PrayerMeta = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+`;
+
+const MetaBadge = styled.span`
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: ${c.primaryLight};
+  color: ${c.primaryMid};
+  border: 1px solid ${c.border};
+`;
+
+const ManagerBadge = styled.span`
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: ${c.primary};
+  color: #fff;
+`;
+
+const PrayerContentBox = styled.div`
+  background: ${c.bg};
+  border: 1px solid ${c.border};
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: ${c.textPrimary};
+  white-space: pre-line;
+`;
+
+const PrayerInfoRow = styled.p`
+  font-size: 0.78rem;
+  color: ${c.textSecondary};
+  margin-bottom: 6px;
+`;
+
+// ─────────────────────────────────────────────
+// 콘솔 패널
+// ─────────────────────────────────────────────
+const ConsoleWrap = styled.div`
+  ${cardStyle}
+`;
+
+const ConsoleHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: hsl(210, 15%, 20%);
+  border-bottom: 1px solid hsl(210, 15%, 25%);
+
+  h3 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: ${c.consoleGray};
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 `;
 
-const AuthError = styled.p`
-  font-size: 0.75rem;
-  color: ${colors.danger};
-  font-weight: 500;
-  margin-top: 4px;
+const ConsoleDot = styled.span`
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: ${({ $color }) => $color};
+  display: inline-block;
 `;
 
-const AuthBtnContainer = styled.div`
-  display: flex;
-  gap: 8px;
-  width: 100%;
-  margin-top: 8px;
+const ConsoleBody = styled.div`
+  background: ${c.bgConsole};
+  height: 280px;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-family: 'Courier New', monospace;
+
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-track { background: hsl(210, 15%, 20%); }
+  &::-webkit-scrollbar-thumb { background: hsl(210, 15%, 35%); border-radius: 3px; }
 `;
 
-const AuthButton = styled.button`
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
+const LogLine = styled.p`
+  font-size: 0.74rem;
+  line-height: 1.7;
+  color: ${({ $level }) =>
+    $level === 'error' ? 'hsl(0, 80%, 70%)' :
+    $level === 'warn'  ? 'hsl(38, 90%, 70%)' :
+    c.consoleText};
+  white-space: pre-wrap;
+  word-break: break-all;
+`;
+
+// ─────────────────────────────────────────────
+// 스켈레톤 / 에러 / 빈 상태
+// ─────────────────────────────────────────────
+const Skeleton = styled.div`
+  height: ${({ $h }) => $h || '14px'};
+  width: ${({ $w }) => $w || '100%'};
+  background: linear-gradient(90deg, hsl(220,10%,90%) 25%, hsl(220,10%,95%) 50%, hsl(220,10%,90%) 75%);
+  background-size: 200% 100%;
   border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  letter-spacing: -0.01em;
-
-  ${({ variant }) => variant === 'primary' && `
-    background: ${colors.primary};
-    color: #fff;
-    border: 1px solid ${colors.primary};
-    
-    &:hover {
-      background: ${colors.primaryDark};
-      border-color: ${colors.primaryDark};
-    }
-  `}
-
-  ${({ variant }) => variant === 'outline' && `
-    background: ${colors.cardBg};
-    color: ${colors.textPrimary};
-    border: 1px solid ${colors.border};
-    
-    &:hover {
-      background: ${colors.bg};
-    }
-  `}
+  margin-bottom: 8px;
+  animation: shimmer 1.5s infinite;
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 `;
 
-export default function PrayerDashboard() {
-  // ── 라우팅 상태 ──
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+const ErrMsg = styled.p`
+  font-size: 0.8rem;
+  color: ${c.danger};
+  background: ${c.dangerLight};
+  border: 1px solid ${c.danger}44;
+  border-radius: 8px;
+  padding: 10px 12px;
+`;
 
-  // 페이지 이동 함수
-  const navigate = useCallback((path) => {
-    window.history.pushState(null, '', path);
-    setCurrentPath(path);
-  }, []);
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 32px 0;
+  color: ${c.textMuted};
+  font-size: 0.82rem;
+`;
 
-  // 뒤로가기/앞으로가기 브라우저 액션 대응
-  useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+// ─────────────────────────────────────────────
+// 유틸리티
+// ─────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleString('ko-KR', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    });
+  } catch { return iso; }
+}
 
-  // ── 관리자 권한 인증 상태 ──
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
-    return sessionStorage.getItem('admin_auth') === 'true';
-  });
-  const [passwordInput, setPasswordInput] = useState('');
-  const [authError, setAuthError] = useState('');
+function logLevel(line) {
+  const u = line.toUpperCase();
+  if (u.includes('ERROR') || u.includes('CRITICAL')) return 'error';
+  if (u.includes('WARNING') || u.includes('WARN'))   return 'warn';
+  return 'info';
+}
 
-  // ── 상태 관리 ──
-  const [status, setStatus]           = useState(null);           // /api/status 데이터
-  const [configData, setConfigData]   = useState(null);           // /api/config 데이터
-  const [logs, setLogs]               = useState([]);             // /api/logs 데이터
-  const [isTriggering, setIsTriggering] = useState(false);        // 동기화 요청 로딩 상태
-  const [statusError, setStatusError] = useState(null);           // 상태 통신 오류
-  const [configError, setConfigError] = useState(null);           // 설정 통신 오류
-  const [logsError, setLogsError]     = useState(null);           // 로그 통신 오류
-  const [triggerMsg, setTriggerMsg]   = useState(null);           // 트리거 응답 메시지
-  const [isConfigLoading, setIsConfigLoading] = useState(true);   // 설정 최초 로딩 상태
+// ─────────────────────────────────────────────
+// 가상 키패드 컴포넌트 (재사용)
+// ─────────────────────────────────────────────
+function VirtualKeypad({ onKey }) {
+  return (
+    <KeypadGrid>
+      {KEYPAD_ROWS.flat().map((key) => {
+        const variant =
+          key === 'C'  ? 'clear' :
+          key === '⌫' ? 'back'  : 'num';
+        return (
+          <KeypadBtn
+            key={key}
+            variant={variant}
+            isSpecial={variant !== 'num'}
+            onClick={() => onKey(key)}
+          >
+            {key}
+          </KeypadBtn>
+        );
+      })}
+    </KeypadGrid>
+  );
+}
 
-  // Notion 제거 및 대시보드 뷰어용 상태 신설
-  const [prayersData, setPrayersData] = useState(null);           // /api/prayers 데이터
-  const [prayersError, setPrayersError] = useState(null);         // 기도제목 통신 오류
-  const [selectedManager, setSelectedManager] = useState('ALL');  // 필터링 담당자
+// ─────────────────────────────────────────────
+// PIN 오버레이 컴포넌트 (일반 / 관리자 공용)
+// ─────────────────────────────────────────────
+function PinOverlay({ title, subtitle, pinLength = 4, correctPin, onSuccess, adminMode }) {
+  const [buf, setBuf]         = useState('');
+  const [error, setError]     = useState('');
+  const [shaking, setShaking] = useState(false);
+  const [fadeout, setFadeout] = useState(false);
+  const inputRef              = useRef(null);
 
-  // ── API 요청 함수들 ──
+  /** 버퍼에 키 처리 */
+  const handleKey = useCallback((key) => {
+    if (shaking || fadeout) return;
 
-  /** 상태 조회 (/api/status) */
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/status`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setStatus(data);
-      setStatusError(null);
-    } catch (err) {
-      console.error('[PrayerDashboard] status fetch error:', err);
-      setStatusError('상태 정보를 가져오지 못했습니다.');
-    }
-  }, []);
+    setBuf(prev => {
+      if (key === 'C')  return '';
+      if (key === '⌫') return prev.slice(0, -1);
+      if (prev.length >= pinLength) return prev;
 
-  /** 로그 스트리밍 조회 (/api/logs) */
-  const fetchLogs = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/logs?limit=80`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setLogs(data.lines || []);
-      setLogsError(null);
-    } catch (err) {
-      console.error('[PrayerDashboard] logs fetch error:', err);
-      setLogsError('로그를 가져오지 못했습니다.');
-    }
-  }, []);
+      const next = prev + key;
 
-  /**
-   * 통합 데이터 조회 (/api/prayers)
-   * 기도제목 + 담당자 배정 + 공통기도제목 모두 포함
-   * 5초마다 폴링 → 구글 시트 변경 사항이 최대 5분 내 자동 반영
-   */
-  const fetchPrayers = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/prayers`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setPrayersData(data);
-      setPrayersError(null);
-      // assignments, common_prayers도 prayersData에 포함됨 → configData 불필요
-      if (data.assignments && Object.keys(data.assignments).length > 0) {
-        setConfigData({
-          common_prayers: { data: data.common_prayers || [], source: data.common_prayers_source },
-          assignments:    { data: data.assignments || {},    source: data.assignments_source },
-        });
-        setIsConfigLoading(false);
-        setConfigError(null);
+      // 4자리 채워지면 자동 검증
+      if (next.length === pinLength) {
+        setTimeout(() => verify(next), 0);
       }
-    } catch (err) {
-      console.error('[PrayerDashboard] prayers fetch error:', err);
-      setPrayersError('기도제목 데이터를 가져오지 못했습니다.');
-    }
-  }, []);
+      return next;
+    });
+    setError('');
+  }, [shaking, fadeout, pinLength]);
 
-  /**
-   * 구글 시트 강제 새로고침 (/api/refresh)
-   * 관리자가 담당자를 추가한 직후 즉시 반영할 때 사용
-   */
-  const handleForceRefresh = useCallback(async () => {
-    setIsConfigLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/refresh`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // 갱신 후 즉시 재조회
-      await fetchPrayers();
-      setTriggerMsg({ type: 'success', text: '✅ 구글 시트에서 최신 데이터를 불러왔습니다.' });
-    } catch (err) {
-      console.error('[PrayerDashboard] force refresh error:', err);
-      setTriggerMsg({ type: 'error', text: '새로고침 중 오류가 발생했습니다.' });
-    } finally {
-      setIsConfigLoading(false);
-    }
-  }, [fetchPrayers]);
-
-  /** 파이프라인 트리거 시작 */
-  const handleTrigger = useCallback(async () => {
-    if (isTriggering || status?.status === 'RUNNING') return;
-
-    setIsTriggering(true);
-    setTriggerMsg(null);
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/trigger`, { method: 'POST' });
-      const data = await res.json();
-
-      if (res.status === 409) {
-        setTriggerMsg({ type: 'warn', text: data.detail || '이미 실행 중입니다.' });
-      } else if (!res.ok) {
-        setTriggerMsg({ type: 'error', text: data.detail || '실행 요청 실패' });
-      } else {
-        setTriggerMsg({ type: 'success', text: data.message || '파이프라인 실행이 시작되었습니다.' });
-        // 즉시 상태 리프레시
-        setTimeout(() => {
-          fetchStatus();
-          fetchPrayers();
-        }, 800);
-      }
-    } catch (err) {
-      console.error('[PrayerDashboard] trigger error:', err);
-      setTriggerMsg({ type: 'error', text: '요청 중 오류가 발생했습니다.' });
-    } finally {
-      setIsTriggering(false);
-    }
-  }, [isTriggering, status?.status, fetchStatus]);
-
-  // ── 관리자 비밀번호 검증 ──
-  const handleAuthSubmit = (e) => {
-    e.preventDefault();
-    if (passwordInput === '1217') {
-      setIsAdminAuthenticated(true);
-      sessionStorage.setItem('admin_auth', 'true');
-      setAuthError('');
-      setPasswordInput('');
+  /** PIN 검증 */
+  function verify(value) {
+    if (value === correctPin) {
+      // ── 인증 성공: 페이드 아웃 후 콜백 ──
+      setFadeout(true);
+      setTimeout(() => onSuccess(), 500);
     } else {
-      setAuthError('비밀번호가 올바르지 않습니다.');
+      // ── 인증 실패: 흔들림 + 에러 + 버퍼 초기화 ──
+      setShaking(true);
+      setError('비밀번호가 올바르지 않습니다.');
+      setBuf('');
+      setTimeout(() => setShaking(false), 420);
     }
-  };
+  }
 
-  const handleAuthCancel = () => {
-    setAuthError('');
-    setPasswordInput('');
-    navigate('/'); // 안전하게 일반 화면으로 리다이렉트
-  };
-
-  // ── 생명주기 및 폴링 설정 ──
+  /** 물리 키보드 지원 */
   useEffect(() => {
-    // 초기 로드
-    fetchStatus();
-    fetchLogs();
-    fetchPrayers(); // 기도제목 + 담당자 + 공통기도제목 통합 조회
-
-    // 3초 간격 상태 조회
-    const statusInterval = setInterval(fetchStatus, 3000);
-    // 5초 간격 로그 스트리밍
-    const logsInterval = setInterval(fetchLogs, 5000);
-    // 10초 간격 기도제목+담당자 통합 조회
-    const prayersInterval = setInterval(fetchPrayers, 10000);
-
-    return () => {
-      clearInterval(statusInterval);
-      clearInterval(logsInterval);
-      clearInterval(prayersInterval);
-    };
-  }, [fetchStatus, fetchLogs, fetchPrayers]);
-
-  // ── 트리거 완료 메시지 5초 자동 소거 ──
-  useEffect(() => {
-    if (triggerMsg) {
-      const timer = setTimeout(() => setTriggerMsg(null), 5000);
-      return () => clearTimeout(timer);
+    function onKeydown(e) {
+      if (e.key >= '0' && e.key <= '9') { handleKey(e.key); return; }
+      if (e.key === 'Backspace')          { handleKey('⌫'); return; }
+      if (e.key === 'Escape')             { handleKey('C'); }
     }
-  }, [triggerMsg]);
+    window.addEventListener('keydown', onKeydown);
+    return () => window.removeEventListener('keydown', onKeydown);
+  }, [handleKey]);
 
-  // 데이터 가공 및 서브컴포넌트 바인딩용 변수
-  const currentStatus  = status?.status || 'IDLE';
-  const lastRun        = status?.last_run;
-  const configSource   = status?.config_source;
-  const unmapped       = status?.unmapped_requesters || [];
-  const notionPageId   = status?.notion_page_id;
-  const notionPageUrl  = notionPageId ? `https://notion.so/${notionPageId.replace(/-/g, '')}` : null;
+  return (
+    <Overlay fadeout={fadeout.toString()}>
+      <PinCard shaking={shaking.toString()}>
+        {/* 아이콘 */}
+        <div style={{ fontSize: '2.4rem' }}>
+          {adminMode ? '🔐' : '🙏'}
+        </div>
 
-  // configData는 prayersData에서 파싱된 값 (fetchPrayers 폴링으로 자동 최신화)
-  const commonPrayers  = configData?.common_prayers?.data || prayersData?.common_prayers || [];
-  const prayerSource   = configData?.common_prayers?.source || prayersData?.common_prayers_source;
-  const assignments    = configData?.assignments?.data || prayersData?.assignments || {};
-  const assignSource   = configData?.assignments?.source || prayersData?.assignments_source;
+        {/* 제목 */}
+        <PinTitle>
+          <h2>{title}</h2>
+          <p>{subtitle}</p>
+        </PinTitle>
 
-  const isAdmin = currentPath === '/admin';
-  const showAdminAuth = isAdmin && !isAdminAuthenticated;
+        {/* PIN 표시 (마스킹) */}
+        <PinDisplay>
+          {Array.from({ length: pinLength }).map((_, i) => (
+            <PinDot key={i} filled={i < buf.length} />
+          ))}
+        </PinDisplay>
+
+        {/* 숨겨진 읽기 전용 input (모바일 기본 키보드 차단) */}
+        <input
+          ref={inputRef}
+          type="text"
+          readOnly
+          value={'●'.repeat(buf.length)}
+          style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+          aria-label="PIN 입력창"
+        />
+
+        {/* 에러 메시지 */}
+        <PinError>{error}</PinError>
+
+        {/* 가상 키패드 */}
+        <VirtualKeypad onKey={handleKey} />
+      </PinCard>
+    </Overlay>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 개별 기도제목 탭 콘텐츠
+// ─────────────────────────────────────────────
+function IndividualPrayersTab({ prayersData, assignments, selectedManager, onSelectManager }) {
+  if (!prayersData) return <Skeleton $h="80px" />;
+
+  const prayersByRequester = prayersData.prayers_by_requester || {};
+  const managerNames = Object.keys(assignments);
+
+  // 역방향 매핑: 제출자 → 담당자
+  const submitterToManager = useMemo(() => {
+    const map = {};
+    Object.entries(assignments).forEach(([mgr, assignees]) => {
+      assignees.forEach(a => { map[a] = mgr; });
+    });
+    return map;
+  }, [assignments]);
+
+  // 전체 기도제목 평탄화 (각 기도에 manager 필드 추가)
+  const allPrayers = useMemo(() => {
+    const result = [];
+    Object.entries(prayersByRequester).forEach(([requester, prayers]) => {
+      const mgr = submitterToManager[requester] || '미배정';
+      prayers.forEach(p => result.push({ ...p, _manager: mgr }));
+    });
+    return result;
+  }, [prayersByRequester, submitterToManager]);
+
+  // 필터 적용
+  const filtered = useMemo(() => {
+    if (selectedManager === 'ALL') return allPrayers;
+    if (selectedManager === '미배정') return allPrayers.filter(p => p._manager === '미배정');
+    return allPrayers.filter(p => p._manager === selectedManager);
+  }, [allPrayers, selectedManager]);
+
+  const unmappedCount = allPrayers.filter(p => p._manager === '미배정').length;
 
   return (
     <>
+      {/* 담당자 필터 버튼 */}
+      <FilterBar>
+        {['ALL', ...managerNames, ...(unmappedCount > 0 ? ['미배정'] : [])].map(name => (
+          <FilterBtn
+            key={name}
+            $active={selectedManager === name}
+            onClick={() => onSelectManager(name)}
+          >
+            {name === 'ALL' ? '전체' : name}
+            {name === '미배정' && ` (${unmappedCount})`}
+          </FilterBtn>
+        ))}
+      </FilterBar>
+
+      {/* 기도제목 카드 목록 */}
+      {filtered.length === 0 ? (
+        <EmptyState>
+          {selectedManager === 'ALL'
+            ? '제출된 기도제목이 없습니다.'
+            : `'${selectedManager}' 담당자의 기도제목이 없습니다.`}
+        </EmptyState>
+      ) : (
+        <PrayerCardGrid>
+          {filtered.map((prayer, i) => (
+            <PrayerCardWrap key={i} $i={i}>
+              <PrayerCardHeader>
+                <PrayerTarget>
+                  🙏 {prayer.target_name || prayer.name}
+                </PrayerTarget>
+                <PrayerMeta>
+                  {prayer.gender && <MetaBadge>{prayer.gender}</MetaBadge>}
+                  {prayer.age && <MetaBadge>{prayer.age}</MetaBadge>}
+                  {prayer._manager && <ManagerBadge>{prayer._manager}</ManagerBadge>}
+                </PrayerMeta>
+              </PrayerCardHeader>
+
+              <PrayerInfoRow>
+                👤 제출자: <strong>{prayer.name}</strong>
+                {prayer.relationship && `  ·  관계: ${prayer.relationship}`}
+              </PrayerInfoRow>
+
+              <PrayerContentBox>
+                {prayer.prayer_content || '(내용 없음)'}
+              </PrayerContentBox>
+            </PrayerCardWrap>
+          ))}
+        </PrayerCardGrid>
+      )}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 메인 컴포넌트
+// ─────────────────────────────────────────────
+export default function PrayerDashboard() {
+  // ── 관리자 모드 판별 (URL에 '/admin' 포함) ──
+  const isAdmin = typeof window !== 'undefined'
+    && window.location.pathname.includes('/admin');
+
+  // ── 인증 상태 ──
+  const [isUserAuth,  setIsUserAuth]  = useState(
+    typeof sessionStorage !== 'undefined'
+      ? sessionStorage.getItem(SESSION_USER_KEY) === 'true'
+      : false
+  );
+  const [isAdminAuth, setIsAdminAuth] = useState(
+    typeof sessionStorage !== 'undefined'
+      ? sessionStorage.getItem(SESSION_ADMIN_KEY) === 'true'
+      : false
+  );
+
+  // ── 탭 상태 ──
+  const defaultTab = isAdmin ? 'settings' : 'individual';
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
+  // ── 담당자 필터 (localStorage 캐싱) ──
+  const [selectedManager, _setSelectedManager] = useState(
+    typeof localStorage !== 'undefined'
+      ? (localStorage.getItem(LS_MANAGER_KEY) || 'ALL')
+      : 'ALL'
+  );
+
+  function setSelectedManager(name) {
+    _setSelectedManager(name);
+    try { localStorage.setItem(LS_MANAGER_KEY, name); } catch {}
+  }
+
+  // ── 데이터 상태 ──
+  const [status,       setStatus]      = useState(null);
+  const [prayersData,  setPrayersData] = useState(null);
+  const [configData,   setConfigData]  = useState(null);
+  const [logs,         setLogs]        = useState([]);
+  const [isConfigLoad, setIsConfigLoad]= useState(true);
+  const [isPrayLoad,   setIsPrayLoad]  = useState(true);
+
+  // ── 오류 상태 ──
+  const [statusErr,  setStatusErr]  = useState(null);
+  const [configErr,  setConfigErr]  = useState(null);
+  const [logsErr,    setLogsErr]    = useState(null);
+
+  // ── 트리거 상태 ──
+  const [triggering, setTriggering] = useState(false);
+  const [trigMsg,    setTrigMsg]    = useState(null);
+
+  const consoleRef = useRef(null);
+
+  // ─────────────────── API fetch 함수 ───────────────────
+  const fetchStatus = useCallback(async () => {
+    try {
+      const r = await fetch('/api/status');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setStatus(await r.json());
+      setStatusErr(null);
+    } catch (e) {
+      console.error('[Dashboard] status error:', e);
+      setStatusErr('상태 조회 실패');
+    }
+  }, []);
+
+  const fetchConfig = useCallback(async () => {
+    setIsConfigLoad(true);
+    try {
+      const r = await fetch('/api/config');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setConfigData(await r.json());
+      setConfigErr(null);
+    } catch (e) {
+      console.error('[Dashboard] config error:', e);
+      setConfigErr('설정 데이터 조회 실패');
+    } finally {
+      setIsConfigLoad(false);
+    }
+  }, []);
+
+  const fetchPrayers = useCallback(async () => {
+    setIsPrayLoad(true);
+    try {
+      const r = await fetch('/api/prayers');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setPrayersData(await r.json());
+    } catch (e) {
+      console.error('[Dashboard] prayers error:', e);
+    } finally {
+      setIsPrayLoad(false);
+    }
+  }, []);
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const r = await fetch('/api/logs?limit=100');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      setLogs(d.lines || []);
+      setLogsErr(null);
+    } catch (e) {
+      console.error('[Dashboard] logs error:', e);
+      setLogsErr('로그 조회 실패');
+    }
+  }, []);
+
+  // 파이프라인 트리거
+  const handleTrigger = useCallback(async () => {
+    if (triggering || status?.status === 'RUNNING') return;
+    setTriggering(true);
+    setTrigMsg(null);
+    try {
+      const r = await fetch('/api/trigger', { method: 'POST' });
+      const d = await r.json();
+      if (r.status === 409) {
+        setTrigMsg({ type: 'warn', text: d.detail || '이미 실행 중입니다.' });
+      } else if (!r.ok) {
+        setTrigMsg({ type: 'error', text: d.detail || '요청 실패' });
+      } else {
+        setTrigMsg({ type: 'success', text: d.message || '파이프라인 실행이 시작되었습니다.' });
+        setTimeout(fetchStatus, 800);
+      }
+    } catch (e) {
+      setTrigMsg({ type: 'error', text: '요청 중 오류가 발생했습니다.' });
+    } finally {
+      setTriggering(false);
+    }
+  }, [triggering, status?.status, fetchStatus]);
+
+  // ─────────────────── 탭 변경 ───────────────────
+  function changeTab(tab) {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  // ─────────────────── 폴링 & 초기 로드 ───────────────────
+  useEffect(() => {
+    fetchStatus();
+    fetchConfig();
+    fetchPrayers();
+    fetchLogs();
+
+    const si = setInterval(fetchStatus, 3000);
+    const li = setInterval(fetchLogs, 5000);
+
+    return () => { clearInterval(si); clearInterval(li); };
+  }, [fetchStatus, fetchConfig, fetchPrayers, fetchLogs]);
+
+  // ─────────────────── selectedManager 무결성 검사 ───────────────────
+  useEffect(() => {
+    if (!prayersData || !configData) return;
+
+    const assignments = configData?.assignments?.data || {};
+    const validManagers = new Set([
+      'ALL',
+      ...Object.keys(assignments),
+      '미배정'
+    ]);
+
+    if (!validManagers.has(selectedManager)) {
+      console.warn(`[Dashboard] 캐시된 담당자 '${selectedManager}' 가 배정표에 없음 → ALL로 복구`);
+      setSelectedManager('ALL');
+    }
+  }, [prayersData, configData]);
+
+  // ─────────────────── 콘솔 자동 스크롤 ───────────────────
+  useEffect(() => {
+    if (consoleRef.current) {
+      consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
+    }
+  }, [logs]);
+
+  // ─────────────────── 트리거 메시지 자동 소거 ───────────────────
+  useEffect(() => {
+    if (trigMsg) {
+      const t = setTimeout(() => setTrigMsg(null), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [trigMsg]);
+
+  // ─────────────────── 파생 값 ───────────────────
+  const curStatus     = status?.status || 'IDLE';
+  const isRunning     = curStatus === 'RUNNING';
+  const unmapped      = status?.unmapped_requesters || [];
+  const notionPageId  = status?.notion_page_id || NOTION_FALLBACK;
+  const notionPageUrl = `https://notion.so/${notionPageId.replace(/-/g, '')}`;
+
+  const commonPrayers  = configData?.common_prayers?.data || [];
+  const prayerSource   = configData?.common_prayers?.source;
+  const assignments    = configData?.assignments?.data || {};
+  const assignSource   = configData?.assignments?.source;
+
+  // ─────────────────── 인증 오버레이 렌더링 ───────────────────
+  /**
+   * 관리자 모드: 관리자 PIN 카드만 표시 (일반 PIN 없음)
+   * 일반 모드: 일반 PIN 오버레이
+   */
+  if (isAdmin && !isAdminAuth) {
+    return (
+      <>
+        <GlobalStyle />
+        <PinOverlay
+          title="관리자 인증"
+          subtitle="관리자 비밀번호를 입력하세요"
+          correctPin={PIN_ADMIN}
+          adminMode
+          onSuccess={() => {
+            try { sessionStorage.setItem(SESSION_ADMIN_KEY, 'true'); } catch {}
+            setIsAdminAuth(true);
+          }}
+        />
+      </>
+    );
+  }
+
+  if (!isAdmin && !isUserAuth) {
+    return (
+      <>
+        <GlobalStyle />
+        <PinOverlay
+          title="CBF 기도제목 대시보드"
+          subtitle="비밀번호 4자리를 입력하세요"
+          correctPin={PIN_USER}
+          onSuccess={() => {
+            try { sessionStorage.setItem(SESSION_USER_KEY, 'true'); } catch {}
+            setIsUserAuth(true);
+          }}
+        />
+      </>
+    );
+  }
+
+  // ─────────────────── 탭 정의 ───────────────────
+  const userTabs = [
+    { key: 'individual', label: '🙏 개별 기도제목' },
+    { key: 'common',     label: '📋 공통 기도제목' },
+  ];
+
+  const adminTabs = [
+    { key: 'settings', label: '👥 담당자 설정 및 관리' },
+    { key: 'prayers',  label: '📋 개별 기도제목 현황' },
+    { key: 'logs',     label: '💻 실시간 시스템 로그' },
+  ];
+
+  const tabs = isAdmin ? adminTabs : userTabs;
+
+  // ─────────────────── 렌더 ───────────────────
+  return (
+    <>
       <GlobalStyle />
-      <ContainerWrapper>
+      <Wrapper>
+
         {/* ── 헤더 ── */}
-        <Header notionPageUrl={notionPageUrl} isAdmin={isAdmin} onNavigate={navigate} />
+        <Header>
+          <HeaderLeft>
+            <HeaderEmoji>🙏</HeaderEmoji>
+            <HeaderText>
+              <h1>CBF 기도제목 자동화 대시보드{isAdmin ? ' (관리자)' : ''}</h1>
+              <p>Google Sheets → Notion 자동 동기화 파이프라인</p>
+            </HeaderText>
+          </HeaderLeft>
+          <NotionLink href={notionPageUrl} target="_blank" rel="noopener noreferrer">
+            📓 Notion 페이지
+          </NotionLink>
+        </Header>
 
-        {showAdminAuth ? (
-          // 🔒 관리자 페이지 비밀번호 입력 모달/카드
-          <AuthCardWrapper>
-            <AuthCard>
-              <LockIcon>🔒</LockIcon>
-              <AuthTitle>관리자 인증 필요</AuthTitle>
-              <AuthSub>
-                관리자 도구에 진입하려면 설정된 비밀번호를 입력해 주십시오.
-              </AuthSub>
-              <AuthForm onSubmit={handleAuthSubmit}>
-                <PasswordInput
-                  type="password"
-                  placeholder="••••"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  maxLength={10}
-                  autoFocus
-                />
-                {authError && <AuthError>{authError}</AuthError>}
-                <AuthBtnContainer>
-                  <AuthButton type="button" variant="outline" onClick={handleAuthCancel}>
-                    취소
-                  </AuthButton>
-                  <AuthButton type="submit" variant="primary">
-                    인증하기
-                  </AuthButton>
-                </AuthBtnContainer>
-              </AuthForm>
-            </AuthCard>
-          </AuthCardWrapper>
-        ) : isAdmin ? (
-          // ⚙️ 관리자용 페이지 뷰 (인증 완료 시)
-          <>
-            {/* 상태 정보 바 */}
-            <StatusBar
-              currentStatus={currentStatus}
-              lastRun={lastRun}
-              configSource={configSource}
-              statusError={statusError}
-              isTriggering={isTriggering}
-              handleTrigger={handleTrigger}
-            />
-
-            {/* 트리거 액션 알림 팝업/토스트 메시지 */}
-            {triggerMsg && (
-              <div style={{
-                padding: '10px 14px',
-                marginBottom: '16px',
-                borderRadius: '8px',
-                fontSize: '0.8rem',
-                fontWeight: '600',
-                background: triggerMsg.type === 'success' ? colors.successLight : 
-                            (triggerMsg.type === 'warn' ? colors.warningLight : colors.dangerLight),
-                color: triggerMsg.type === 'success' ? colors.success : 
-                       (triggerMsg.type === 'warn' ? colors.warning : colors.danger),
-                border: `1px solid ${triggerMsg.type === 'success' ? colors.success : 
-                                    (triggerMsg.type === 'warn' ? colors.warning : colors.danger)}44`
-              }}>
-                {triggerMsg.type === 'success' ? '✅' : '⚠'} {triggerMsg.text}
-              </div>
-            )}
-
-            {/* 담당자 미배정 제출자 에러 배너 */}
-            <AlertBanner unmappedRequesters={unmapped} />
-
-            {/* 구글 시트 바로가기 + 새로고침 버튼 묶음 */}
-            <div style={{
-              display: 'flex', flexWrap: 'wrap', gap: '8px',
-              justifyContent: 'flex-end', marginBottom: '12px', alignItems: 'center'
-            }}>
-              {/* 설문 응답 시트 바로가기 */}
-              <a
-                href="https://docs.google.com/spreadsheets/d/1pfntXb8KM5ONJTVbLDi02e5X0SvFiKqFZTYQh6gQP9U"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '6px',
-                  padding: '6px 14px', borderRadius: '6px', fontSize: '0.78rem',
-                  fontWeight: '500', cursor: 'pointer', textDecoration: 'none',
-                  border: `1px solid #16a34a44`,
-                  background: '#16a34a11', color: '#16a34a', transition: 'all 0.2s'
-                }}
+        {/* ── 탭 스위처 ── */}
+        <TabsContainer>
+          <TabsList>
+            {tabs.map(t => (
+              <TabsTrigger
+                key={t.key}
+                active={activeTab === t.key}
+                onClick={() => changeTab(t.key)}
               >
-                📋 설문 응답 시트
-              </a>
-              {/* 설정 시트 바로가기 (공통기도제목 & 담당자배정) */}
-              <a
-                href="https://docs.google.com/spreadsheets/d/1Bvl8bKvXQezJA3diKZM3sd_WauWSEG7jjjh7w3e74VI"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '6px',
-                  padding: '6px 14px', borderRadius: '6px', fontSize: '0.78rem',
-                  fontWeight: '500', cursor: 'pointer', textDecoration: 'none',
-                  border: `1px solid #2563eb44`,
-                  background: '#2563eb11', color: '#2563eb', transition: 'all 0.2s'
-                }}
-              >
-                ⚙️ 설정 시트
-              </a>
-              {/* 구분선 */}
-              <div style={{ width: '1px', height: '20px', background: colors.border, margin: '0 2px' }} />
-              {/* 캐시 즉시 새로고침 */}
-              <button
-                onClick={handleForceRefresh}
-                disabled={isConfigLoading}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '6px',
-                  padding: '6px 14px', borderRadius: '6px', fontSize: '0.78rem',
-                  fontWeight: '500', cursor: 'pointer', border: `1px solid ${colors.border}`,
-                  background: colors.cardBg, color: colors.textPrimary, transition: 'all 0.2s',
-                  opacity: isConfigLoading ? 0.6 : 1
-                }}
-              >
-                🔄 {isConfigLoading ? '로딩 중...' : '새로고침'}
-              </button>
-            </div>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </TabsContainer>
 
-            {/* 실제 수집된 기도제목 뷰어 */}
-            <PrayersViewer
-              prayersData={prayersData}
-              assignments={assignments}
-              selectedManager={selectedManager}
-              setSelectedManager={setSelectedManager}
-            />
+        {/* ────────────── 일반 사용자 탭 콘텐츠 ────────────── */}
 
-            {/* 설정 정보(공통 기도제목 & 담당자 배정) 카드 그리드 */}
-            <ConfigGrid
-              isConfigLoading={isConfigLoading}
-              configError={configError}
-              commonPrayers={commonPrayers}
-              prayerSource={prayerSource}
-              assignments={assignments}
-              assignSource={assignSource}
-              onManagerClick={setSelectedManager}
-              isAdmin={true}
-              unmappedRequesters={unmapped}
-              onRefreshConfig={fetchPrayers}
-            />
-
-            {/* 실시간 로그 터미널 */}
-            <ConsolePanel
-              logs={logs}
-              logsError={logsError}
-              currentStatus={currentStatus}
-            />
-          </>
-        ) : (
-          // 🙏 기도팀용 페이지 뷰 (기도제목만 노출)
-          <>
-            {/* 공통 기도제목 카드 (담당자 지정 없이 1열로만 렌더링) */}
-            <ConfigGrid
-              isConfigLoading={isConfigLoading}
-              configError={configError}
-              commonPrayers={commonPrayers}
-              prayerSource={prayerSource}
-              assignments={assignments}
-              assignSource={assignSource}
-              onManagerClick={setSelectedManager}
-              isAdmin={false}
-              unmappedRequesters={unmapped}
-              onRefreshConfig={fetchPrayers}
-            />
-
-            {/* 실제 수집된 개별 구도자 기도제목 뷰어 */}
-            <PrayersViewer
-              prayersData={prayersData}
-              assignments={assignments}
-              selectedManager={selectedManager}
-              setSelectedManager={setSelectedManager}
-            />
-          </>
+        {/* 개별 기도제목 (default for user) */}
+        {!isAdmin && (
+          <TabsContent active={activeTab === 'individual'}>
+            <Card>
+              <CardHead>
+                <span>🙏</span>
+                <h3>개별 기도제목</h3>
+                <SourceTag $sheet={prayersData?.source !== 'empty'} style={{ marginLeft: 'auto' }}>
+                  {isPrayLoad ? '로딩 중...' : `총 ${Object.values(prayersData?.prayers_by_requester || {}).reduce((s, v) => s + v.length, 0)}개`}
+                </SourceTag>
+              </CardHead>
+              <CardBody>
+                {isPrayLoad ? (
+                  <>
+                    <Skeleton /><Skeleton $w="85%" /><Skeleton $w="70%" />
+                  </>
+                ) : (
+                  <IndividualPrayersTab
+                    prayersData={prayersData}
+                    assignments={assignments}
+                    selectedManager={selectedManager}
+                    onSelectManager={setSelectedManager}
+                  />
+                )}
+              </CardBody>
+            </Card>
+          </TabsContent>
         )}
-      </ContainerWrapper>
+
+        {/* 공통 기도제목 (user) */}
+        {!isAdmin && (
+          <TabsContent active={activeTab === 'common'}>
+            <Card>
+              <CardHead>
+                <span>📋</span>
+                <h3>공통 기도제목</h3>
+                {prayerSource && (
+                  <SourceTag $sheet={prayerSource === 'google_sheets'}>
+                    {prayerSource === 'google_sheets' ? '🔗 시트' : '⚙️ 기본값'}
+                  </SourceTag>
+                )}
+              </CardHead>
+              <CardBody>
+                {isConfigLoad ? (
+                  <><Skeleton /><Skeleton $w="85%" /><Skeleton $w="70%" /></>
+                ) : configErr ? (
+                  <ErrMsg>❌ {configErr}</ErrMsg>
+                ) : commonPrayers.length === 0 ? (
+                  <EmptyState>공통 기도제목이 없습니다.</EmptyState>
+                ) : (
+                  <PrayerList>
+                    {commonPrayers.map((p, i) => (
+                      <PrayerItem key={i} $i={i}>
+                        <PNum>{i + 1}.</PNum>
+                        <PText>{p}</PText>
+                      </PrayerItem>
+                    ))}
+                  </PrayerList>
+                )}
+              </CardBody>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* ────────────── 관리자 탭 콘텐츠 ────────────── */}
+
+        {/* 담당자 설정 및 관리 (admin default) */}
+        {isAdmin && (
+          <TabsContent active={activeTab === 'settings'}>
+
+            {/* 파이프라인 상태 카드 */}
+            <StatusCard style={{ marginBottom: 16 }}>
+              <StatusInner>
+                <StatusLeft>
+                  <StatusBadge s={curStatus}>
+                    {isRunning ? <Spinner /> : <StatusDot />}
+                    {statusMap[curStatus]?.label || curStatus}
+                  </StatusBadge>
+                  {status?.last_run && (
+                    <SmallText>마지막 실행: {fmtDate(status.last_run)}</SmallText>
+                  )}
+                  {statusErr && (
+                    <SmallText style={{ color: c.danger }}>⚠ {statusErr}</SmallText>
+                  )}
+                </StatusLeft>
+                <TriggerBtn
+                  $disabled={isRunning || triggering}
+                  disabled={isRunning || triggering}
+                  onClick={handleTrigger}
+                >
+                  {isRunning || triggering ? <Spinner /> : '▶'}
+                  {isRunning ? '실행 중...' : triggering ? '요청 중...' : '동기화 시작'}
+                </TriggerBtn>
+              </StatusInner>
+              {trigMsg && (
+                <div style={{
+                  padding: '0 20px 14px',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  color: trigMsg.type === 'success' ? c.success
+                       : trigMsg.type === 'warn'    ? c.warning
+                       : c.danger
+                }}>
+                  {trigMsg.type === 'success' ? '✅' : trigMsg.type === 'warn' ? '⚠️' : '❌'}
+                  {' '}{trigMsg.text}
+                </div>
+              )}
+            </StatusCard>
+
+            {/* 담당자 미지정 경고 배너 */}
+            <AlertBanner $show={unmapped.length > 0}>
+              <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+              <div>
+                <p style={{ fontWeight: 700, color: c.danger, fontSize: '0.88rem', marginBottom: 4 }}>
+                  담당자 미지정 제출자 감지
+                </p>
+                <p style={{ fontSize: '0.8rem', color: 'hsl(0, 50%, 40%)' }}>
+                  아래 이름이 배정표에 없습니다: <strong>{unmapped.join(', ')}</strong>
+                </p>
+              </div>
+            </AlertBanner>
+
+            {/* 2열: 공통기도제목 + 담당자배정 */}
+            <TwoCol>
+              {/* 공통 기도제목 */}
+              <Card>
+                <CardHead>
+                  <span>📋</span>
+                  <h3>공통 기도제목</h3>
+                  {prayerSource && (
+                    <SourceTag $sheet={prayerSource === 'google_sheets'}>
+                      {prayerSource === 'google_sheets' ? '🔗 시트' : '⚙️ 기본값'}
+                    </SourceTag>
+                  )}
+                </CardHead>
+                <CardBody>
+                  {isConfigLoad ? (
+                    <><Skeleton /><Skeleton $w="85%" /></>
+                  ) : configErr ? (
+                    <ErrMsg>❌ {configErr}</ErrMsg>
+                  ) : commonPrayers.length === 0 ? (
+                    <EmptyState>기도제목이 없습니다.</EmptyState>
+                  ) : (
+                    <PrayerList>
+                      {commonPrayers.map((p, i) => (
+                        <PrayerItem key={i} $i={i}>
+                          <PNum>{i + 1}.</PNum>
+                          <PText>{p}</PText>
+                        </PrayerItem>
+                      ))}
+                    </PrayerList>
+                  )}
+                </CardBody>
+              </Card>
+
+              {/* 담당자 배정 */}
+              <Card>
+                <CardHead>
+                  <span>👥</span>
+                  <h3>담당자 배정 현황</h3>
+                  {assignSource && (
+                    <SourceTag $sheet={assignSource === 'google_sheets'}>
+                      {assignSource === 'google_sheets' ? '🔗 시트' : '⚙️ 기본값'}
+                    </SourceTag>
+                  )}
+                </CardHead>
+                <CardBody>
+                  {isConfigLoad ? (
+                    <><Skeleton /><Skeleton $w="75%" /></>
+                  ) : configErr ? (
+                    <ErrMsg>❌ {configErr}</ErrMsg>
+                  ) : Object.keys(assignments).length === 0 ? (
+                    <EmptyState>배정 정보가 없습니다.</EmptyState>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {Object.entries(assignments).map(([mgr, assignees], i) => (
+                        <AssignRow key={mgr} $i={i}>
+                          <ManagerName>{mgr}</ManagerName>
+                          <Tags>{assignees.map(a => <Tag key={a}>{a}</Tag>)}</Tags>
+                        </AssignRow>
+                      ))}
+                    </div>
+                  )}
+                  {!isConfigLoad && (
+                    <div style={{ marginTop: 14, textAlign: 'right' }}>
+                      <button
+                        onClick={fetchConfig}
+                        style={{
+                          background: 'none', border: `1px solid ${c.border}`,
+                          borderRadius: 6, padding: '4px 12px',
+                          fontSize: '0.75rem', color: c.textSecondary, cursor: 'pointer'
+                        }}
+                        onMouseEnter={e => { e.target.style.borderColor = c.primary; e.target.style.color = c.primary; }}
+                        onMouseLeave={e => { e.target.style.borderColor = c.border; e.target.style.color = c.textSecondary; }}
+                      >
+                        🔄 설정 새로고침
+                      </button>
+                    </div>
+                  )}
+                </CardBody>
+              </Card>
+            </TwoCol>
+          </TabsContent>
+        )}
+
+        {/* 개별 기도제목 현황 (admin) */}
+        {isAdmin && (
+          <TabsContent active={activeTab === 'prayers'}>
+            <Card>
+              <CardHead>
+                <span>📋</span>
+                <h3>개별 기도제목 현황</h3>
+                <SourceTag $sheet style={{ marginLeft: 'auto' }}>
+                  {isPrayLoad
+                    ? '로딩 중...'
+                    : `총 ${Object.values(prayersData?.prayers_by_requester || {}).reduce((s, v) => s + v.length, 0)}개`}
+                </SourceTag>
+              </CardHead>
+              <CardBody>
+                {isPrayLoad ? (
+                  <><Skeleton /><Skeleton $w="85%" /><Skeleton $w="60%" /></>
+                ) : (
+                  <IndividualPrayersTab
+                    prayersData={prayersData}
+                    assignments={assignments}
+                    selectedManager={selectedManager}
+                    onSelectManager={setSelectedManager}
+                  />
+                )}
+              </CardBody>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* 실시간 시스템 로그 (admin) */}
+        {isAdmin && (
+          <TabsContent active={activeTab === 'logs'}>
+            <ConsoleWrap>
+              <ConsoleHead>
+                <h3>
+                  <ConsoleDot $color="hsl(0, 80%, 60%)" />
+                  <ConsoleDot $color="hsl(38, 90%, 55%)" />
+                  <ConsoleDot $color="hsl(95, 50%, 50%)" />
+                  &nbsp;&nbsp;파이프라인 로그
+                </h3>
+                <span style={{ fontSize: '0.7rem', color: c.consoleGray }}>
+                  5초마다 자동 갱신{logsErr ? ' · ⚠ 조회 오류' : ''}
+                </span>
+              </ConsoleHead>
+              <ConsoleBody ref={consoleRef}>
+                {logs.length === 0 ? (
+                  <p style={{ fontSize: '0.76rem', color: c.consoleGray, fontStyle: 'italic' }}>
+                    {logsErr ? `⚠ ${logsErr}` : '로그가 없습니다. 파이프라인을 실행하면 로그가 표시됩니다.'}
+                  </p>
+                ) : (
+                  logs.map((line, i) => (
+                    <LogLine key={i} $level={logLevel(line)}>{line}</LogLine>
+                  ))
+                )}
+              </ConsoleBody>
+            </ConsoleWrap>
+          </TabsContent>
+        )}
+
+      </Wrapper>
     </>
   );
 }

@@ -806,6 +806,39 @@ const LogLine = styled.p`
   word-break: break-all;
 `;
 
+const AdminShortcuts = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+  animation: ${fadeIn} 0.35s ease;
+`;
+
+const ShortcutLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+  border: 1px solid ${({ $border }) => $border};
+  background: ${({ $bg }) => $bg};
+  color: ${({ $color }) => $color};
+  box-shadow: 0 1px 2px 0 ${c.shadow};
+
+  &:hover {
+    background: ${({ $hoverBg }) => $hoverBg};
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  &:active {
+    transform: scale(0.96);
+  }
+`;
+
 // ─────────────────────────────────────────────
 // 스켈레톤 / 에러 / 빈 상태
 // ─────────────────────────────────────────────
@@ -1393,9 +1426,11 @@ export default function PrayerDashboard() {
               <p>Google Sheets → Notion 자동 동기화 파이프라인</p>
             </HeaderText>
           </HeaderLeft>
-          <NotionLink href={notionPageUrl} target="_blank" rel="noopener noreferrer">
-            📓 Notion 페이지
-          </NotionLink>
+          {isAdmin && (
+            <NotionLink href={notionPageUrl} target="_blank" rel="noopener noreferrer">
+              📓 Notion 페이지
+            </NotionLink>
+          )}
         </Header>
 
         {/* ── 탭 스위처 ── */}
@@ -1523,6 +1558,32 @@ export default function PrayerDashboard() {
                 </div>
               )}
             </StatusCard>
+
+            {/* ── 관리자 구글 시트 바로가기 ── */}
+            <AdminShortcuts>
+              <ShortcutLink
+                href="https://docs.google.com/spreadsheets/d/1Bvl8bKvXQezJA3diKZM3sd_WauWSEG7jjjh7w3e74VI/edit#gid=266289115"
+                target="_blank"
+                rel="noopener noreferrer"
+                $border="#16a34a33"
+                $bg="#16a34a0f"
+                $color="#16a34a"
+                $hoverBg="#16a34a1a"
+              >
+                📋 설문 응답 시트 바로가기
+              </ShortcutLink>
+              <ShortcutLink
+                href="https://docs.google.com/spreadsheets/d/1Bvl8bKvXQezJA3diKZM3sd_WauWSEG7jjjh7w3e74VI"
+                target="_blank"
+                rel="noopener noreferrer"
+                $border="#2563eb33"
+                $bg="#2563eb0f"
+                $color="#2563eb"
+                $hoverBg="#2563eb1a"
+              >
+                ⚙️ 설정 시트 바로가기
+              </ShortcutLink>
+            </AdminShortcuts>
 
             {/* 담당자 미지정 경고 배너 */}
             <AlertBanner $show={unmapped.length > 0}>

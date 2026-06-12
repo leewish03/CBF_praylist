@@ -1581,6 +1581,60 @@ export default function PrayerDashboard() {
     }
   }, [handleAuthExpiration, token]);
 
+  // ─────────────────── API fetch 함수 ───────────────────
+  const fetchStatus = useCallback(async () => {
+    try {
+      const r = await fetch('/api/status');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setStatus(await r.json());
+      setStatusErr(null);
+    } catch (e) {
+      console.error('[Dashboard] status error:', e);
+      setStatusErr('상태 조회 실패');
+    }
+  }, []);
+
+  const fetchConfig = useCallback(async () => {
+    setIsConfigLoad(true);
+    try {
+      const r = await authenticatedFetch('/api/config');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setConfigData(await r.json());
+      setConfigErr(null);
+    } catch (e) {
+      console.error('[Dashboard] config error:', e);
+      setConfigErr('설정 데이터 조회 실패');
+    } finally {
+      setIsConfigLoad(false);
+    }
+  }, [authenticatedFetch]);
+
+  const fetchPrayers = useCallback(async () => {
+    setIsPrayLoad(true);
+    try {
+      const r = await authenticatedFetch('/api/prayers');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setPrayersData(await r.json());
+    } catch (e) {
+      console.error('[Dashboard] prayers error:', e);
+    } finally {
+      setIsPrayLoad(false);
+    }
+  }, [authenticatedFetch]);
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const r = await authenticatedFetch('/api/logs?limit=100');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      setLogs(d.lines || []);
+      setLogsErr(null);
+    } catch (e) {
+      console.error('[Dashboard] logs error:', e);
+      setLogsErr('로그 조회 실패');
+    }
+  }, [authenticatedFetch]);
+
   // ── 편집 핸들러 ──
   const handleDeleteAssignee = useCallback((manager, name) => {
     setEditingAssignments(prev => ({
@@ -1686,59 +1740,7 @@ export default function PrayerDashboard() {
 
 
 
-  // ─────────────────── API fetch 함수 ───────────────────
-  const fetchStatus = useCallback(async () => {
-    try {
-      const r = await fetch('/api/status');
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setStatus(await r.json());
-      setStatusErr(null);
-    } catch (e) {
-      console.error('[Dashboard] status error:', e);
-      setStatusErr('상태 조회 실패');
-    }
-  }, []);
 
-  const fetchConfig = useCallback(async () => {
-    setIsConfigLoad(true);
-    try {
-      const r = await authenticatedFetch('/api/config');
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setConfigData(await r.json());
-      setConfigErr(null);
-    } catch (e) {
-      console.error('[Dashboard] config error:', e);
-      setConfigErr('설정 데이터 조회 실패');
-    } finally {
-      setIsConfigLoad(false);
-    }
-  }, [authenticatedFetch]);
-
-  const fetchPrayers = useCallback(async () => {
-    setIsPrayLoad(true);
-    try {
-      const r = await authenticatedFetch('/api/prayers');
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setPrayersData(await r.json());
-    } catch (e) {
-      console.error('[Dashboard] prayers error:', e);
-    } finally {
-      setIsPrayLoad(false);
-    }
-  }, [authenticatedFetch]);
-
-  const fetchLogs = useCallback(async () => {
-    try {
-      const r = await authenticatedFetch('/api/logs?limit=100');
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const d = await r.json();
-      setLogs(d.lines || []);
-      setLogsErr(null);
-    } catch (e) {
-      console.error('[Dashboard] logs error:', e);
-      setLogsErr('로그 조회 실패');
-    }
-  }, [authenticatedFetch]);
 
   // 파이프라인 트리거
   const handleTrigger = useCallback(async () => {

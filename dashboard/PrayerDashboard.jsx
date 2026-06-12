@@ -839,6 +839,193 @@ const ShortcutLink = styled.a`
   }
 `;
 
+const DeleteTagBtn = styled.button`
+  border: none;
+  background: transparent;
+  color: ${c.textMuted};
+  cursor: pointer;
+  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  border-radius: 50%;
+  margin-left: 4px;
+  transition: all 0.15s;
+
+  &:hover {
+    color: ${c.danger};
+    background: ${c.dangerLight};
+  }
+`;
+
+const QuickAddForm = styled.form`
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+  
+  @media (max-width: 480px) {
+    width: 100%;
+    margin-top: 6px;
+  }
+`;
+
+const MiniInput = styled.input`
+  border: 1px solid ${c.border};
+  background: ${c.cardBg};
+  color: ${c.textPrimary};
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  outline: none;
+  width: 90px;
+  transition: border-color 0.15s;
+
+  &:focus {
+    border-color: ${c.primary};
+  }
+
+  @media (max-width: 480px) {
+    flex-grow: 1;
+  }
+`;
+
+const MiniButton = styled.button`
+  border: 1px solid ${c.border};
+  background: ${c.bg};
+  color: ${c.textPrimary};
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: ${c.primary};
+    border-color: ${c.primary};
+    color: #fff;
+  }
+`;
+
+const UnmappedSection = styled.div`
+  background: ${c.dangerLight}66;
+  border: 1px solid ${c.danger}22;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  animation: ${fadeIn} 0.3s ease;
+`;
+
+const UnmappedTitle = styled.h4`
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: ${c.danger};
+  margin-bottom: 8px;
+`;
+
+const UnmappedGrid = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const UnmappedRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  background: ${c.cardBg};
+  border: 1px solid ${c.border};
+  border-radius: 6px;
+  flex-wrap: wrap;
+`;
+
+const UnmappedName = styled.span`
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: ${c.textPrimary};
+`;
+
+const SelectBox = styled.select`
+  border: 1px solid ${c.border};
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 0.72rem;
+  outline: none;
+  background: ${c.cardBg};
+  color: ${c.textPrimary};
+`;
+
+const ActionFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid ${c.border};
+  background: ${c.bg};
+  align-items: center;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+`;
+
+const SaveButton = styled.button`
+  border: 1px solid ${c.primary};
+  background: ${c.primary};
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px 0 ${c.shadow};
+
+  &:hover:not(:disabled) {
+    background: ${c.primaryDark};
+    border-color: ${c.primaryDark};
+  }
+
+  &:disabled {
+    background: ${c.idleLight};
+    border-color: ${c.border};
+    color: ${c.idle};
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+`;
+
+const ResetButton = styled.button`
+  border: 1px solid ${c.border};
+  background: ${c.cardBg};
+  color: ${c.textSecondary};
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: ${c.bg};
+    color: ${c.textPrimary};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const ToastMessage = styled.div`
+  font-size: 0.75rem;
+  color: ${({ type }) => type === 'success' ? c.success : c.danger};
+  font-weight: 600;
+  margin-right: auto;
+`;
+
 // ─────────────────────────────────────────────
 // 스켈레톤 / 에러 / 빈 상태
 // ─────────────────────────────────────────────
@@ -1173,6 +1360,135 @@ export default function PrayerDashboard() {
   const [trigMsg,    setTrigMsg]    = useState(null);
 
   const consoleRef = useRef(null);
+
+  // ── 담당자 편집용 로컬 상태 ──
+  const [editingAssignments, setEditingAssignments] = useState({});
+  const [newAssigneeInputs, setNewAssigneeInputs] = useState({});
+  const [unmappedSelections, setUnmappedSelections] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  // 부모로부터 assignments 프롭스가 갱신될 때 로컬 상태 초기화
+  useEffect(() => {
+    if (configData?.assignments?.data) {
+      const copy = {};
+      Object.entries(configData.assignments.data).forEach(([k, v]) => {
+        copy[k] = [...v];
+      });
+      setEditingAssignments(copy);
+    }
+  }, [configData]);
+
+  // 토스트 메시지 5초 후 자동 제거
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  // ── 편집 핸들러 ──
+  const handleDeleteAssignee = useCallback((manager, name) => {
+    setEditingAssignments(prev => ({
+      ...prev,
+      [manager]: (prev[manager] || []).filter(n => n !== name)
+    }));
+  }, []);
+
+  const handleAddAssigneeSubmit = useCallback((manager, e) => {
+    if (e) e.preventDefault();
+    const name = newAssigneeInputs[manager]?.trim();
+    if (!name) return;
+
+    if (editingAssignments[manager]?.includes(name)) {
+      alert('이미 배정된 이름입니다.');
+      return;
+    }
+
+    setEditingAssignments(prev => ({
+      ...prev,
+      [manager]: [...(prev[manager] || []), name]
+    }));
+
+    setNewAssigneeInputs(prev => ({ ...prev, [manager]: '' }));
+  }, [newAssigneeInputs, editingAssignments]);
+
+  const handleQuickAssign = useCallback((requester) => {
+    const targetManager = unmappedSelections[requester];
+    if (!targetManager) {
+      alert('담당자를 선택해주세요.');
+      return;
+    }
+
+    setEditingAssignments(prev => ({
+      ...prev,
+      [targetManager]: [...(prev[targetManager] || []), requester]
+    }));
+
+    setUnmappedSelections(prev => {
+      const copy = { ...prev };
+      delete copy[requester];
+      return copy;
+    });
+  }, [unmappedSelections]);
+
+  const hasChanges = useCallback(() => {
+    const original = configData?.assignments?.data;
+    if (!original || !editingAssignments) return false;
+    
+    const origKeys = Object.keys(original);
+    const editKeys = Object.keys(editingAssignments);
+    if (origKeys.length !== editKeys.length) return true;
+
+    for (let key of origKeys) {
+      const origList = original[key] || [];
+      const editList = editingAssignments[key] || [];
+      if (origList.length !== editList.length) return true;
+      
+      const origSorted = [...origList].sort().join(',');
+      const editSorted = [...editList].sort().join(',');
+      if (origSorted !== editSorted) return true;
+    }
+    return false;
+  }, [configData, editingAssignments]);
+
+  const handleSaveAssignments = useCallback(async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setToast(null);
+
+    try {
+      const res = await authenticatedFetch('/api/config/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignments: editingAssignments })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || '저장 실패');
+
+      setToast({ type: 'success', text: '✅ 구글 시트 배정표를 성공적으로 업데이트했습니다!' });
+      
+      // 데이터 강제 리프레시
+      fetchConfig();
+    } catch (err) {
+      console.error('[Dashboard] Save assignments error:', err);
+      setToast({ type: 'error', text: `❌ 저장 실패: ${err.message}` });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [editingAssignments, isSaving, authenticatedFetch, fetchConfig]);
+
+  const handleResetAssignments = useCallback(() => {
+    if (!configData?.assignments?.data) return;
+    const copy = {};
+    Object.entries(configData.assignments.data).forEach(([k, v]) => {
+      copy[k] = [...v];
+    });
+    setEditingAssignments(copy);
+    setUnmappedSelections({});
+    setToast(null);
+  }, [configData]);
 
   // ─────────────────── 인증 만료 및 API 래퍼 ───────────────────
   const handleAuthExpiration = useCallback(() => {
@@ -1631,34 +1947,108 @@ export default function PrayerDashboard() {
                 </CardBody>
               </Card>
 
-              {/* 담당자 배정 */}
+              {/* 담당자 지정 및 할당 편집기 */}
               <Card>
                 <CardHead>
                   <span>👥</span>
-                  <h3>담당자 배정 현황</h3>
+                  <h3>담당자 지정 및 할당 편집기</h3>
                   {assignSource && (
                     <SourceTag $sheet={assignSource === 'google_sheets'}>
                       {assignSource === 'google_sheets' ? '🔗 시트' : '⚙️ 기본값'}
                     </SourceTag>
                   )}
                 </CardHead>
-                <CardBody>
+                <CardBody style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                  
+                  {/* 미배정 사용자 할당 필요 경고 섹션 */}
+                  {(() => {
+                    const actualUnmapped = unmapped.filter(req => {
+                      return !Object.values(editingAssignments || {}).some(list => list.includes(req));
+                    });
+                    if (actualUnmapped.length === 0) return null;
+                    const managers = Object.keys(editingAssignments || {});
+                    return (
+                      <UnmappedSection>
+                        <UnmappedTitle>⚠️ 담당자 미지정 사용자 할당 필요 ({actualUnmapped.length}명)</UnmappedTitle>
+                        <UnmappedGrid>
+                          {actualUnmapped.map(req => (
+                            <UnmappedRow key={req}>
+                              <UnmappedName>{req}</UnmappedName>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <SelectBox
+                                  value={unmappedSelections[req] || ''}
+                                  onChange={(e) => setUnmappedSelections(prev => ({ ...prev, [req]: e.target.value }))}
+                                >
+                                  <option value="">담당자 선택...</option>
+                                  {managers.map(m => (
+                                    <option key={m} value={m}>{m}</option>
+                                  ))}
+                                </SelectBox>
+                                <MiniButton 
+                                  type="button" 
+                                  onClick={() => handleQuickAssign(req)}
+                                  style={{ background: c.primary, color: '#fff', borderColor: c.primary }}
+                                >
+                                  할당
+                                </MiniButton>
+                              </div>
+                            </UnmappedRow>
+                          ))}
+                        </UnmappedGrid>
+                      </UnmappedSection>
+                    );
+                  })()}
+
+                  {/* 담당자 배정 편집 목록 */}
                   {isConfigLoad ? (
                     <><Skeleton /><Skeleton $w="75%" /></>
                   ) : configErr ? (
                     <ErrMsg>❌ {configErr}</ErrMsg>
-                  ) : Object.keys(assignments).length === 0 ? (
+                  ) : Object.keys(editingAssignments || {}).length === 0 ? (
                     <EmptyState>배정 정보가 없습니다.</EmptyState>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {Object.entries(assignments).map(([mgr, assignees], i) => (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {Object.entries(editingAssignments || {}).map(([mgr, assignees], i) => (
                         <AssignRow key={mgr} $i={i}>
-                          <ManagerName>{mgr}</ManagerName>
-                          <Tags>{assignees.map(a => <Tag key={a}>{a}</Tag>)}</Tags>
+                          <ManagerName onClick={() => setSelectedManager(mgr)}>
+                            {mgr}
+                          </ManagerName>
+                          <Tags>
+                            {assignees.length > 0 ? (
+                              assignees.map(a => (
+                                <Tag key={a}>
+                                  {a}
+                                  <DeleteTagBtn 
+                                    type="button" 
+                                    onClick={() => handleDeleteAssignee(mgr, a)}
+                                    title="삭제"
+                                  >
+                                    ✕
+                                  </DeleteTagBtn>
+                                </Tag>
+                              ))
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: c.textMuted, fontStyle: 'italic', paddingLeft: '4px' }}>
+                                제출자 없음
+                              </span>
+                            )}
+                          </Tags>
+                          
+                          {/* 개별 추가 폼 */}
+                          <QuickAddForm onSubmit={(e) => handleAddAssigneeSubmit(mgr, e)}>
+                            <MiniInput
+                              type="text"
+                              placeholder="이름 추가..."
+                              value={newAssigneeInputs[mgr] || ''}
+                              onChange={(e) => setNewAssigneeInputs(prev => ({ ...prev, [mgr]: e.target.value }))}
+                            />
+                            <MiniButton type="submit">추가</MiniButton>
+                          </QuickAddForm>
                         </AssignRow>
                       ))}
                     </div>
                   )}
+                  
                   {!isConfigLoad && (
                     <div style={{ marginTop: 14, textAlign: 'right' }}>
                       <button
@@ -1676,6 +2066,25 @@ export default function PrayerDashboard() {
                     </div>
                   )}
                 </CardBody>
+
+                {/* 하단 푸터 저장 제어바 */}
+                <ActionFooter>
+                  {toast && <ToastMessage type={toast.type}>{toast.text}</ToastMessage>}
+                  <ResetButton 
+                    type="button" 
+                    onClick={handleResetAssignments} 
+                    disabled={!hasChanges() || isSaving}
+                  >
+                    초기화
+                  </ResetButton>
+                  <SaveButton 
+                    type="button" 
+                    onClick={handleSaveAssignments} 
+                    disabled={!hasChanges() || isSaving}
+                  >
+                    {isSaving ? '저장 중...' : '구글 시트에 저장'}
+                  </SaveButton>
+                </ActionFooter>
               </Card>
             </TwoCol>
           </TabsContent>

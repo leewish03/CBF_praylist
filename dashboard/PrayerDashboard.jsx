@@ -1550,6 +1550,37 @@ export default function PrayerDashboard() {
     }
   }, [toast]);
 
+  // ─────────────────── 인증 만료 및 API 래퍼 ───────────────────
+  const handleAuthExpiration = useCallback(() => {
+    setToken(null);
+    setRole(null);
+    setPrayersData(null);
+    setConfigData(null);
+    setLogs([]);
+    console.warn('[Dashboard] 세션 만료로 데이터 소거 및 로그인 화면 전환');
+  }, []);
+
+  const authenticatedFetch = useCallback(async (url, options = {}) => {
+    const currentToken = token;
+    const headers = {
+      ...options.headers,
+    };
+    if (currentToken) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
+    }
+
+    try {
+      const response = await fetch(url, { ...options, headers });
+      if (response.status === 401) {
+        handleAuthExpiration();
+        throw new Error('인증 세션이 만료되었습니다. 다시 로그인해주세요.');
+      }
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }, [handleAuthExpiration, token]);
+
   // ── 편집 핸들러 ──
   const handleDeleteAssignee = useCallback((manager, name) => {
     setEditingAssignments(prev => ({
@@ -1653,36 +1684,7 @@ export default function PrayerDashboard() {
     setToast(null);
   }, [configData]);
 
-  // ─────────────────── 인증 만료 및 API 래퍼 ───────────────────
-  const handleAuthExpiration = useCallback(() => {
-    setToken(null);
-    setRole(null);
-    setPrayersData(null);
-    setConfigData(null);
-    setLogs([]);
-    console.warn('[Dashboard] 세션 만료로 데이터 소거 및 로그인 화면 전환');
-  }, []);
 
-  const authenticatedFetch = useCallback(async (url, options = {}) => {
-    const currentToken = token;
-    const headers = {
-      ...options.headers,
-    };
-    if (currentToken) {
-      headers['Authorization'] = `Bearer ${currentToken}`;
-    }
-
-    try {
-      const response = await fetch(url, { ...options, headers });
-      if (response.status === 401) {
-        handleAuthExpiration();
-        throw new Error('인증 세션이 만료되었습니다. 다시 로그인해주세요.');
-      }
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }, [handleAuthExpiration, token]);
 
   // ─────────────────── API fetch 함수 ───────────────────
   const fetchStatus = useCallback(async () => {

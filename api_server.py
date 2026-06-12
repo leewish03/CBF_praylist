@@ -594,8 +594,12 @@ async def health_check():
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-if os.path.exists("static/assets"):
-    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+ASSETS_DIR = os.path.join(STATIC_DIR, "assets")
+
+if os.path.exists(ASSETS_DIR):
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
 
 @app.get("/{catchall:path}")
@@ -604,11 +608,11 @@ async def read_index(catchall: str):
     if catchall.startswith("api"):
         raise HTTPException(status_code=404, detail="API route not found")
 
-    static_file = os.path.join("static", catchall)
+    static_file = os.path.join(STATIC_DIR, catchall)
     if catchall and os.path.exists(static_file) and os.path.isfile(static_file):
         return FileResponse(static_file)
 
-    index_path = os.path.join("static", "index.html")
+    index_path = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
 

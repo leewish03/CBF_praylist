@@ -1826,46 +1826,7 @@ export default function PrayerDashboard() {
   const assignments    = configData?.assignments?.data || {};
   const assignSource   = configData?.assignments?.source;
 
-  // ─────────────────── 인증 오버레이 렌더링 ───────────────────
-  /**
-   * 관리자 모드: 관리자 PIN 카드만 표시 (일반 PIN 없음)
-   * 일반 모드: 일반 PIN 오버레이
-   */
-  if (isAdmin && !isAdminAuth) {
-    return (
-      <>
-        <GlobalStyle />
-        <PinOverlay
-          title="관리자 인증"
-          subtitle="관리자 비밀번호를 입력하세요"
-          adminMode
-          onSuccess={(tok, rol) => {
-            setToken(tok);
-            setRole(rol);
-          }}
-        />
-      </>
-    );
-  }
 
-  if (!isAdmin && !isUserAuth) {
-    return (
-      <>
-        <GlobalStyle />
-        <PinOverlay
-          title="CBF 기도제목 대시보드"
-          subtitle="비밀번호 4자리를 입력하세요"
-          onSuccess={(tok, rol) => {
-            setToken(tok);
-            setRole(rol);
-            if (rol === 'ROLE_ADMIN') {
-              navigate('/admin');
-            }
-          }}
-        />
-      </>
-    );
-  }
 
   // ─────────────────── 탭 정의 ───────────────────
   const userTabs = [
@@ -1885,7 +1846,38 @@ export default function PrayerDashboard() {
   return (
     <ErrorBoundary>
       <GlobalStyle />
-      <Wrapper>
+      
+      {/* ── 관리자 인증 오버레이 ── */}
+      {isAdmin && !isAdminAuth && (
+        <PinOverlay
+          title="관리자 인증"
+          subtitle="관리자 비밀번호를 입력하세요"
+          adminMode
+          onSuccess={(tok, rol) => {
+            setToken(tok);
+            setRole(rol);
+          }}
+        />
+      )}
+
+      {/* ── 일반 사용자 인증 오버레이 ── */}
+      {!isAdmin && !isUserAuth && (
+        <PinOverlay
+          title="CBF 기도제목 대시보드"
+          subtitle="비밀번호 4자리를 입력하세요"
+          onSuccess={(tok, rol) => {
+            setToken(tok);
+            setRole(rol);
+            if (rol === 'ROLE_ADMIN') {
+              navigate('/admin');
+            }
+          }}
+        />
+      )}
+
+      {/* ── 인증 완료 시 메인 대시보드 UI 표시 ── */}
+      {((isAdmin && isAdminAuth) || (!isAdmin && isUserAuth)) && (
+        <Wrapper>
 
         {/* ── 헤더 ── */}
         <Header>
@@ -2320,7 +2312,8 @@ export default function PrayerDashboard() {
           </TabsContent>
         )}
 
-      </Wrapper>
+        </Wrapper>
+      )}
     </ErrorBoundary>
   );
 }

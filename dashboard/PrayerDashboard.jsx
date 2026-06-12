@@ -33,13 +33,8 @@ const SESSION_ROLE_KEY  = 'cbf_auth_role';   // 역할 키
 const LS_MANAGER_KEY    = 'cbf_selected_manager'; // localStorage 키 (필터)
 const NOTION_FALLBACK   = '1c50f7e0cd5f8025bb78c5c839f205f0';
 
-/** 가상 키패드 레이아웃 (3 × 4) */
-const KEYPAD_ROWS = [
-  ['1', '2', '3'],
-  ['4', '5', '6'],
-  ['7', '8', '9'],
-  ['C', '0', '⌫'],
-];
+/** 가상 키패드 레이아웃 (1차원) */
+const KEYPAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'];
 
 // ─────────────────────────────────────────────
 // 컬러 시스템 (Forest Green + shadcn 토큰)
@@ -134,8 +129,6 @@ const tabFadeIn = keyframes`
 // 글로벌 스타일
 // ─────────────────────────────────────────────
 const GlobalStyle = createGlobalStyle`
-  @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -1085,7 +1078,7 @@ function logLevel(line) {
 function VirtualKeypad({ onKey }) {
   return (
     <KeypadGrid>
-      {KEYPAD_ROWS.flat().map((key) => {
+      {KEYPAD_KEYS.map((key) => {
         const variant =
           key === 'C'  ? 'clear' :
           key === '⌫' ? 'back'  : 'num';

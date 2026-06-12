@@ -1053,156 +1053,6 @@ const EmptyState = styled.div`
 `;
 
 // ─────────────────────────────────────────────
-// Error Fallback styled-components (다크 프리미엄 스타일)
-// ─────────────────────────────────────────────
-const ErrorFallbackWrap = styled.div`
-  min-height: 100vh;
-  background: hsl(220, 20%, 10%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 24px;
-  gap: 20px;
-  font-family: 'Pretendard', -apple-system, sans-serif;
-`;
-
-const ErrorIcon = styled.div`
-  font-size: 3.5rem;
-  animation: ${pulse} 2s ease-in-out infinite;
-`;
-
-const ErrorTitle = styled.h1`
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: hsl(0, 80%, 75%);
-  text-align: center;
-`;
-
-const ErrorDesc = styled.p`
-  font-size: 0.85rem;
-  color: hsl(220, 10%, 65%);
-  text-align: center;
-  max-width: 480px;
-  line-height: 1.6;
-`;
-
-const ErrorMsgBox = styled.div`
-  background: hsl(220, 20%, 15%);
-  border: 1px solid hsl(220, 15%, 25%);
-  border-radius: 10px;
-  padding: 14px 18px;
-  max-width: 560px;
-  width: 100%;
-
-  p {
-    font-size: 0.8rem;
-    color: hsl(0, 70%, 70%);
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-
-  pre {
-    font-size: 0.72rem;
-    color: hsl(220, 10%, 60%);
-    white-space: pre-wrap;
-    word-break: break-all;
-    line-height: 1.55;
-    font-family: 'Courier New', monospace;
-    margin: 0;
-  }
-`;
-
-const RecoveryBtn = styled.button`
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: hsl(142, 35%, 28%);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 0.88rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-  box-shadow: 0 4px 16px hsla(142, 35%, 28%, 0.4);
-
-  &:hover {
-    background: hsl(142, 40%, 20%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px hsla(142, 40%, 20%, 0.5);
-  }
-  &:active {
-    transform: scale(0.96);
-    box-shadow: none;
-  }
-`;
-
-/**
- * ErrorFallback – ErrorBoundary가 렌더링 에러를 캐치했을 때 표시되는 UI.
- * [시스템 복구 및 재시도] 버튼: sessionStorage/localStorage 초기화 후 페이지 리로드.
- */
-function ErrorFallback({ error }) {
-  function handleRecovery() {
-    try { sessionStorage.clear(); } catch {}
-    try { localStorage.clear();   } catch {}
-    window.location.reload();
-  }
-
-  // stack 요약: 상위 5줄만 표시
-  const stackSummary = error?.stack
-    ? error.stack.split('\n').slice(0, 6).join('\n')
-    : '(스택 정보 없음)';
-
-  return (
-    <ErrorFallbackWrap>
-      <ErrorIcon>⚠️</ErrorIcon>
-      <ErrorTitle>렌더링 오류가 발생했습니다</ErrorTitle>
-      <ErrorDesc>
-        대시보드 컴포넌트에서 예상치 못한 오류가 발생했습니다.<br />
-        아래 복구 버튼을 클릭하면 저장된 데이터를 초기화하고 앱을 재시작합니다.
-      </ErrorDesc>
-      <ErrorMsgBox>
-        <p>오류: {error?.message || '알 수 없는 오류'}</p>
-        <pre>{stackSummary}</pre>
-      </ErrorMsgBox>
-      <RecoveryBtn onClick={handleRecovery}>
-        🔄 시스템 복구 및 재시도
-      </RecoveryBtn>
-    </ErrorFallbackWrap>
-  );
-}
-
-/**
- * ErrorBoundary – 자식 컴포넌트의 렌더링 예외를 캐치하여 ErrorFallback UI를 표시합니다.
- * ※ React 훅은 클래스 컴포넌트에서 사용 불가이므로 클래스 방식으로 구현합니다.
- */
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  /** 렌더링 오류 발생 시 상태 갱신 (렌더 단계에서 호출됨) */
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  /** 오류 세부 정보 콘솔 기록 (커밋 단계에서 호출됨) */
-  componentDidCatch(error, errorInfo) {
-    console.error('[ErrorBoundary] 렌더링 오류 캐치:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return <ErrorFallback error={this.state.error} />;
-    }
-    return this.props.children;
-  }
-}
-
-// ─────────────────────────────────────────────
 // 유틸리티
 // ─────────────────────────────────────────────
 function fmtDate(iso) {
@@ -1451,7 +1301,7 @@ function IndividualPrayersTab({ prayersData, assignments, selectedManager, onSel
 }
 
 // ─────────────────────────────────────────────
-// 에러 바운더리 & Fallback UI
+// 에러 바운더리 & Fallback UI (다크 프리미엄 스타일)
 // ─────────────────────────────────────────────
 const ErrorFallbackContainer = styled.div`
   display: flex;
@@ -1459,112 +1309,137 @@ const ErrorFallbackContainer = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: ${c.bgConsole};
-  color: #fff;
-  padding: 24px;
+  background: hsl(220, 20%, 10%);
+  padding: 40px 24px;
+  gap: 20px;
   text-align: center;
-  font-family: 'Pretendard', sans-serif;
+  font-family: 'Pretendard', -apple-system, sans-serif;
 `;
 
 const ErrorIcon = styled.div`
-  font-size: 3rem;
-  margin-bottom: 16px;
+  font-size: 3.5rem;
+  /* pulse 애니메이션으로 긴장감 전달 */
+  animation: ${pulse} 2s ease-in-out infinite;
 `;
 
 const ErrorTitle = styled.h2`
   font-size: 1.4rem;
   font-weight: 700;
-  color: ${c.danger};
-  margin-bottom: 8px;
+  color: hsl(0, 80%, 75%);
+  text-align: center;
 `;
 
 const ErrorMsg = styled.p`
-  font-size: 0.9rem;
-  color: ${c.consoleGray};
-  margin-bottom: 24px;
-  max-width: 450px;
+  font-size: 0.85rem;
+  color: hsl(220, 10%, 65%);
+  max-width: 480px;
   line-height: 1.6;
 `;
 
-const ErrorDetailBox = styled.pre`
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid hsl(210, 15%, 25%);
-  border-radius: 8px;
-  padding: 12px;
-  font-size: 0.72rem;
-  font-family: 'Courier New', monospace;
-  color: hsl(0, 80%, 75%);
-  max-width: 600px;
+/**
+ * ErrorDetailBox – error.message 및 error.stack 요약을 디버깅용으로 노출합니다.
+ * 상위 6줄만 표시하여 화면 넘침을 방지합니다.
+ */
+const ErrorDetailBox = styled.div`
+  background: hsl(220, 20%, 15%);
+  border: 1px solid hsl(220, 15%, 25%);
+  border-radius: 10px;
+  padding: 14px 18px;
+  max-width: 560px;
   width: 100%;
-  overflow: auto;
-  max-height: 150px;
   text-align: left;
-  margin-bottom: 24px;
-  white-space: pre-wrap;
-  word-break: break-all;
+
+  p {
+    font-size: 0.8rem;
+    color: hsl(0, 70%, 70%);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  pre {
+    font-size: 0.72rem;
+    color: hsl(220, 10%, 60%);
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.55;
+    font-family: 'Courier New', monospace;
+    margin: 0;
+  }
 `;
 
 const RecoveryButton = styled.button`
-  background: ${c.primary};
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: hsl(142, 35%, 28%);
   color: #fff;
   border: none;
-  border-radius: 8px;
-  padding: 10px 20px;
+  border-radius: 10px;
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px hsla(142, 35%, 28%, 0.3);
-  transition: all 0.2s;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 16px hsla(142, 35%, 28%, 0.4);
 
   &:hover {
-    background: ${c.primaryDark};
-    transform: translateY(-1px);
+    background: hsl(142, 40%, 20%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsla(142, 40%, 20%, 0.5);
   }
   &:active {
-    transform: scale(0.97);
+    transform: scale(0.96);
+    box-shadow: none;
   }
 `;
 
+/**
+ * ErrorBoundary – 자식 컴포넌트의 렌더링 예외를 캐치하여 ErrorFallback UI를 표시합니다.
+ * [시스템 복구 및 재시도] 버튼: sessionStorage/localStorage 초기화 후 window.location.reload().
+ * ※ React 훅은 클래스 컴포넌트에서 사용 불가이므로 클래스 방식으로 구현합니다.
+ */
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
+  /** 렌더링 오류 발생 시 상태 갱신 (렌더 단계에서 호출됨) */
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
 
+  /** 오류 세부 정보 콘솔 기록 (커밋 단계에서 호출됨) */
   componentDidCatch(error, errorInfo) {
-    console.error('[Dashboard ErrorBoundary] Caught error:', error, errorInfo);
+    console.error('[ErrorBoundary] 렌더링 오류 캐치:', error, errorInfo);
   }
 
   handleRecovery = () => {
-    try {
-      if (typeof localStorage !== 'undefined') localStorage.clear();
-      if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
-    } catch (e) {
-      console.error(e);
-    }
+    try { sessionStorage.clear(); } catch {}
+    try { localStorage.clear();   } catch {}
     window.location.reload();
   };
 
   render() {
     if (this.state.hasError) {
+      const err = this.state.error;
+      // stack 상위 6줄만 노출 (디버깅용)
+      const stackSummary = err?.stack
+        ? err.stack.split('\n').slice(0, 6).join('\n')
+        : '(스택 정보 없음)';
+
       return (
         <ErrorFallbackContainer>
           <ErrorIcon>⚠️</ErrorIcon>
-          <ErrorTitle>시스템 오류 발생</ErrorTitle>
+          <ErrorTitle>렌더링 오류가 발생했습니다</ErrorTitle>
           <ErrorMsg>
-            대시보드를 불러오는 도중 예상치 못한 오류가 발생했습니다.<br />
-            아래 복구 버튼을 클릭하여 세션과 상태를 초기화하고 재시도해 주세요.
+            대시보드 컴포넌트에서 예상치 못한 오류가 발생했습니다.<br />
+            아래 복구 버튼을 클릭하면 저장된 데이터를 초기화하고 앱을 재시작합니다.
           </ErrorMsg>
-          {this.state.error && (
-            <ErrorDetailBox>
-              {this.state.error.toString() || '알 수 없는 예외'}
-              {this.state.error.stack && `\n\n${this.state.error.stack}`}
-            </ErrorDetailBox>
-          )}
+          <ErrorDetailBox>
+            <p>오류: {err?.message || '알 수 없는 오류'}</p>
+            <pre>{stackSummary}</pre>
+          </ErrorDetailBox>
           <RecoveryButton onClick={this.handleRecovery}>
             🔄 시스템 복구 및 재시도
           </RecoveryButton>

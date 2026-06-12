@@ -28,6 +28,8 @@ const PIN_USER          = '0691';        // 일반 사용자 PIN
 const PIN_ADMIN         = '1217';        // 관리자 PIN
 const SESSION_USER_KEY  = 'cbf_user_auth';   // sessionStorage 키 (일반)
 const SESSION_ADMIN_KEY = 'cbf_admin_auth';  // sessionStorage 키 (관리자)
+const SESSION_TOKEN_KEY = 'cbf_auth_token';  // JWT 토큰 키
+const SESSION_ROLE_KEY  = 'cbf_auth_role';   // 역할 키
 const LS_MANAGER_KEY    = 'cbf_selected_manager'; // localStorage 키 (필터)
 const NOTION_FALLBACK   = '1c50f7e0cd5f8025bb78c5c839f205f0';
 
@@ -885,7 +887,7 @@ function VirtualKeypad({ onKey }) {
 // ─────────────────────────────────────────────
 // PIN 오버레이 컴포넌트 (일반 / 관리자 공용)
 // ─────────────────────────────────────────────
-function PinOverlay({ title, subtitle, pinLength = 4, correctPin, onSuccess, adminMode }) {
+function PinOverlay({ title, subtitle, pinLength = 4, onSuccess, adminMode }) {
   const [buf, setBuf]         = useState('');
   const [error, setError]     = useState('');
   const [shaking, setShaking] = useState(false);
@@ -913,15 +915,30 @@ function PinOverlay({ title, subtitle, pinLength = 4, correctPin, onSuccess, adm
   }, [shaking, fadeout, pinLength]);
 
   /** PIN 검증 */
-  function verify(value) {
-    if (value === correctPin) {
-      // ── 인증 성공: 페이드 아웃 후 콜백 ──
-      setFadeout(true);
-      setTimeout(() => onSuccess(), 500);
-    } else {
-      // ── 인증 실패: 흔들림 + 에러 + 버퍼 초기화 ──
+  async function verify(value) {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: value })
+      });
+      const data = await response.json();
+
+      if (response.ok && data.token) {
+        // ── 인증 성공: 페이드 아웃 후 콜백 ──
+        setFadeout(true);
+        setTimeout(() => onSuccess(data.token, data.role), 500);
+      } else {
+        // ── 인증 실패: 흔들림 + 에러 + 버퍼 초기화 ──
+        setShaking(true);
+        setError(data.detail || '비밀번호가 올바르지 않습니다.');
+        setBuf('');
+        setTimeout(() => setShaking(false), 420);
+      }
+    } catch (e) {
+      console.error(e);
       setShaking(true);
-      setError('비밀번호가 올바르지 않습니다.');
+      setError('서버와 통신하는 중 오류가 발생했습니다.');
       setBuf('');
       setTimeout(() => setShaking(false), 420);
     }
@@ -1078,20 +1095,19 @@ export default function PrayerDashboard() {
   const isAdmin = typeof window !== 'undefined'
     && window.location.pathname.includes('/admin');
 
-  // ── 인증 상태 ──
-  const [isUserAuth,  setIsUserAuth]  = useState(
-    typeof sessionStorage !== 'undefined'
-      ? sessionStorage.getItem(SESSION_USER_KEY) === 'true'
-      : false
+  // ── 인증 상태 (토큰 기반) ──
+  const [token, setToken] = useState(
+    typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_TOKEN_KEY) : null
   );
-  const [isAdminAuth, setIsAdminAuth] = useState(
-    typeof sessionStorage !== 'undefined'
-      ? sessionStorage.getItem(SESSION_ADMIN_KEY) === 'true'
-      : false
+  const [role, setRole] = useState(
+    typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_ROLE_KEY) : null
   );
 
-  // ── 탭 상태 ──
-  const defaultTab = isAdmin ? 'settings' : 'individual';
+  const isUserAuth = !!token && (role === 'ROLE_USER' || role === 'ROLE_ADMIN');
+  const isAdminAuth = !!token && role === 'ROLE_ADMIN';
+
+  // ── 탭 상태 (디폴트 탭: 공통 기도제목 'common') ──
+  const defaultTab = isAdmin ? 'settings' : 'common';
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   // ── 담당자 필터 (localStorage 캐싱) ──
@@ -1125,6 +1141,41 @@ export default function PrayerDashboard() {
 
   const consoleRef = useRef(null);
 
+  // ─────────────────── 인증 만료 및 API 래퍼 ───────────────────
+  const handleAuthExpiration = useCallback(() => {
+    try {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+      sessionStorage.removeItem(SESSION_ROLE_KEY);
+    } catch {}
+    setToken(null);
+    setRole(null);
+    setPrayersData(null);
+    setConfigData(null);
+    setLogs([]);
+    console.warn('[Dashboard] 세션 만료로 데이터 소거 및 로그인 화면 전환');
+  }, []);
+
+  const authenticatedFetch = useCallback(async (url, options = {}) => {
+    const currentToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_TOKEN_KEY) : null;
+    const headers = {
+      ...options.headers,
+    };
+    if (currentToken) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
+    }
+
+    try {
+      const response = await fetch(url, { ...options, headers });
+      if (response.status === 401) {
+        handleAuthExpiration();
+        throw new Error('인증 세션이 만료되었습니다. 다시 로그인해주세요.');
+      }
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }, [handleAuthExpiration]);
+
   // ─────────────────── API fetch 함수 ───────────────────
   const fetchStatus = useCallback(async () => {
     try {
@@ -1141,7 +1192,7 @@ export default function PrayerDashboard() {
   const fetchConfig = useCallback(async () => {
     setIsConfigLoad(true);
     try {
-      const r = await fetch('/api/config');
+      const r = await authenticatedFetch('/api/config');
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       setConfigData(await r.json());
       setConfigErr(null);
@@ -1151,12 +1202,12 @@ export default function PrayerDashboard() {
     } finally {
       setIsConfigLoad(false);
     }
-  }, []);
+  }, [authenticatedFetch]);
 
   const fetchPrayers = useCallback(async () => {
     setIsPrayLoad(true);
     try {
-      const r = await fetch('/api/prayers');
+      const r = await authenticatedFetch('/api/prayers');
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       setPrayersData(await r.json());
     } catch (e) {
@@ -1164,11 +1215,11 @@ export default function PrayerDashboard() {
     } finally {
       setIsPrayLoad(false);
     }
-  }, []);
+  }, [authenticatedFetch]);
 
   const fetchLogs = useCallback(async () => {
     try {
-      const r = await fetch('/api/logs?limit=100');
+      const r = await authenticatedFetch('/api/logs?limit=100');
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       setLogs(d.lines || []);
@@ -1177,7 +1228,7 @@ export default function PrayerDashboard() {
       console.error('[Dashboard] logs error:', e);
       setLogsErr('로그 조회 실패');
     }
-  }, []);
+  }, [authenticatedFetch]);
 
   // 파이프라인 트리거
   const handleTrigger = useCallback(async () => {
@@ -1185,7 +1236,7 @@ export default function PrayerDashboard() {
     setTriggering(true);
     setTrigMsg(null);
     try {
-      const r = await fetch('/api/trigger', { method: 'POST' });
+      const r = await authenticatedFetch('/api/trigger', { method: 'POST' });
       const d = await r.json();
       if (r.status === 409) {
         setTrigMsg({ type: 'warn', text: d.detail || '이미 실행 중입니다.' });
@@ -1200,7 +1251,7 @@ export default function PrayerDashboard() {
     } finally {
       setTriggering(false);
     }
-  }, [triggering, status?.status, fetchStatus]);
+  }, [triggering, status?.status, fetchStatus, authenticatedFetch]);
 
   // ─────────────────── 탭 변경 ───────────────────
   function changeTab(tab) {
@@ -1279,11 +1330,14 @@ export default function PrayerDashboard() {
         <PinOverlay
           title="관리자 인증"
           subtitle="관리자 비밀번호를 입력하세요"
-          correctPin={PIN_ADMIN}
           adminMode
-          onSuccess={() => {
-            try { sessionStorage.setItem(SESSION_ADMIN_KEY, 'true'); } catch {}
-            setIsAdminAuth(true);
+          onSuccess={(tok, rol) => {
+            try {
+              sessionStorage.setItem(SESSION_TOKEN_KEY, tok);
+              sessionStorage.setItem(SESSION_ROLE_KEY, rol);
+            } catch {}
+            setToken(tok);
+            setRole(rol);
           }}
         />
       </>
@@ -1297,10 +1351,13 @@ export default function PrayerDashboard() {
         <PinOverlay
           title="CBF 기도제목 대시보드"
           subtitle="비밀번호 4자리를 입력하세요"
-          correctPin={PIN_USER}
-          onSuccess={() => {
-            try { sessionStorage.setItem(SESSION_USER_KEY, 'true'); } catch {}
-            setIsUserAuth(true);
+          onSuccess={(tok, rol) => {
+            try {
+              sessionStorage.setItem(SESSION_TOKEN_KEY, tok);
+              sessionStorage.setItem(SESSION_ROLE_KEY, rol);
+            } catch {}
+            setToken(tok);
+            setRole(rol);
           }}
         />
       </>
@@ -1309,8 +1366,8 @@ export default function PrayerDashboard() {
 
   // ─────────────────── 탭 정의 ───────────────────
   const userTabs = [
-    { key: 'individual', label: '🙏 개별 기도제목' },
     { key: 'common',     label: '📋 공통 기도제목' },
+    { key: 'individual', label: '🙏 개별 기도제목' },
   ];
 
   const adminTabs = [

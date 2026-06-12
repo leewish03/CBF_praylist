@@ -1311,24 +1311,43 @@ function IndividualPrayersTab({ prayersData, assignments, selectedManager, onSel
 // 메인 컴포넌트
 // ─────────────────────────────────────────────
 export default function PrayerDashboard() {
-  // ── 관리자 모드 판별 (URL에 '/admin' 포함) ──
-  const isAdmin = typeof window !== 'undefined'
-    && window.location.pathname.includes('/admin');
+  // ── 커스텀 라우팅 상태 ──
+  const [currentPath, setCurrentPath] = useState(
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  );
+  const isAdmin = currentPath.includes('/admin');
 
-  // ── 인증 상태 (토큰 기반) ──
-  const [token, setToken] = useState(
-    typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_TOKEN_KEY) : null
-  );
-  const [role, setRole] = useState(
-    typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_ROLE_KEY) : null
-  );
+  // ── 인증 상태 (메모리 상태 보관 -> 새로고침 시 즉시 초기화되어 재로그인 요구) ──
+  const [token, setToken] = useState(null);
+  const [role, setRole] = useState(null);
 
   const isUserAuth = !!token && (role === 'ROLE_USER' || role === 'ROLE_ADMIN');
   const isAdminAuth = !!token && role === 'ROLE_ADMIN';
 
-  // ── 탭 상태 (디폴트 탭: 공통 기도제목 'common') ──
-  const defaultTab = isAdmin ? 'settings' : 'common';
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  // ── 커스텀 라우터 이동 헬퍼 ──
+  const navigate = useCallback((path) => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', path);
+      setCurrentPath(path);
+      // 화면 전환 시 최상단으로 스크롤
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  // 브라우저 뒤로가기/앞으로가기 감지
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // ── 탭 상태 (경로 변경 시 디폴트 탭 자동 갱신) ──
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'settings' : 'common');
+  useEffect(() => {
+    setActiveTab(isAdmin ? 'settings' : 'common');
+  }, [isAdmin]);
 
   // ── 담당자 필터 (localStorage 캐싱) ──
   const [selectedManager, _setSelectedManager] = useState(
@@ -1492,10 +1511,6 @@ export default function PrayerDashboard() {
 
   // ─────────────────── 인증 만료 및 API 래퍼 ───────────────────
   const handleAuthExpiration = useCallback(() => {
-    try {
-      sessionStorage.removeItem(SESSION_TOKEN_KEY);
-      sessionStorage.removeItem(SESSION_ROLE_KEY);
-    } catch {}
     setToken(null);
     setRole(null);
     setPrayersData(null);
@@ -1505,7 +1520,7 @@ export default function PrayerDashboard() {
   }, []);
 
   const authenticatedFetch = useCallback(async (url, options = {}) => {
-    const currentToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_TOKEN_KEY) : null;
+    const currentToken = token;
     const headers = {
       ...options.headers,
     };
@@ -1523,7 +1538,7 @@ export default function PrayerDashboard() {
     } catch (error) {
       throw error;
     }
-  }, [handleAuthExpiration]);
+  }, [handleAuthExpiration, token]);
 
   // ─────────────────── API fetch 함수 ───────────────────
   const fetchStatus = useCallback(async () => {
@@ -1681,10 +1696,6 @@ export default function PrayerDashboard() {
           subtitle="관리자 비밀번호를 입력하세요"
           adminMode
           onSuccess={(tok, rol) => {
-            try {
-              sessionStorage.setItem(SESSION_TOKEN_KEY, tok);
-              sessionStorage.setItem(SESSION_ROLE_KEY, rol);
-            } catch {}
             setToken(tok);
             setRole(rol);
           }}
@@ -1701,12 +1712,11 @@ export default function PrayerDashboard() {
           title="CBF 기도제목 대시보드"
           subtitle="비밀번호 4자리를 입력하세요"
           onSuccess={(tok, rol) => {
-            try {
-              sessionStorage.setItem(SESSION_TOKEN_KEY, tok);
-              sessionStorage.setItem(SESSION_ROLE_KEY, rol);
-            } catch {}
             setToken(tok);
             setRole(rol);
+            if (rol === 'ROLE_ADMIN') {
+              navigate('/admin');
+            }
           }}
         />
       </>
@@ -1742,9 +1752,26 @@ export default function PrayerDashboard() {
               <p>Google Sheets → Notion 자동 동기화 파이프라인</p>
             </HeaderText>
           </HeaderLeft>
-          {isAdmin && (
-            <NotionLink href={notionPageUrl} target="_blank" rel="noopener noreferrer">
-              📓 Notion 페이지
+          {isAdmin ? (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <NotionLink href={notionPageUrl} target="_blank" rel="noopener noreferrer">
+                📓 Notion 페이지
+              </NotionLink>
+              <NotionLink 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); navigate('/'); }}
+                style={{ background: 'hsla(0, 0%, 100%, 0.1)', cursor: 'pointer' }}
+              >
+                🚪 사용자 화면
+              </NotionLink>
+            </div>
+          ) : (
+            <NotionLink 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); navigate('/admin'); }}
+              style={{ background: 'hsla(0, 0%, 100%, 0.1)', cursor: 'pointer' }}
+            >
+              🔐 관리자 모드
             </NotionLink>
           )}
         </Header>

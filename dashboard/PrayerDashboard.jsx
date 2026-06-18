@@ -594,12 +594,102 @@ const PNum = styled.span`
   padding-top: 2px;
 `;
 
-const PText = styled.p`
+const PText = styled.div`
   font-size: 0.82rem;
   line-height: 1.65;
-  white-space: pre-line;
+  color: ${c.textPrimary};
+  width: 100%;
+`;
+
+// ─────────────────────────────────────────────
+// 마크다운 파서 및 렌더러 컴포넌트 (공통기도제목 등 서식 렌더링용)
+// ─────────────────────────────────────────────
+const MarkdownContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+`;
+
+const NormalLine = styled.div`
+  line-height: 1.65;
+  font-size: 0.82rem;
   color: ${c.textPrimary};
 `;
+
+const BulletItem = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding-left: 14px;
+  line-height: 1.6;
+  font-size: 0.8rem;
+  color: ${c.textSecondary};
+  margin-top: 2px;
+  margin-bottom: 2px;
+
+  .bullet {
+    color: ${c.primary};
+    font-size: 0.9rem;
+    line-height: 1.2;
+    user-select: none;
+  }
+
+  .content {
+    flex: 1;
+  }
+`;
+
+function MarkdownText({ text }) {
+  if (!text) return null;
+
+  // 줄바꿈으로 라인 분리
+  const lines = text.split('\n');
+
+  return (
+    <MarkdownContainer>
+      {lines.map((line, idx) => {
+        // 불릿 목록 형태 파싱 (- 또는 * 또는 + 로 시작)
+        const bulletRegex = /^\s*[-*+]\s+(.*)$/;
+        const match = line.match(bulletRegex);
+
+        // 인라인 스타일 (bold 등) 파싱용 함수
+        const renderInline = (str) => {
+          if (!str) return '';
+          // **bold** 형태 파싱
+          const parts = str.split(/(\*\*.*?\*\*)/g);
+          return parts.map((part, pIdx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={pIdx} style={{ fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+            }
+            return part;
+          });
+        };
+
+        if (match) {
+          const content = match[1];
+          return (
+            <BulletItem key={idx}>
+              <span className="bullet">•</span>
+              <span className="content">{renderInline(content)}</span>
+            </BulletItem>
+          );
+        } else {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            // 빈 줄
+            return <div key={idx} style={{ height: '4px' }} />;
+          }
+          return (
+            <NormalLine key={idx}>
+              {renderInline(line)}
+            </NormalLine>
+          );
+        }
+      })}
+    </MarkdownContainer>
+  );
+}
 
 // ─────────────────────────────────────────────
 // 담당자 배정 테이블
@@ -1987,7 +2077,9 @@ export default function PrayerDashboard() {
                     {commonPrayers.map((p, i) => (
                       <PrayerItem key={i} $i={i}>
                         <PNum>{i + 1}.</PNum>
-                        <PText>{p}</PText>
+                        <PText>
+                          <MarkdownText text={p} />
+                        </PText>
                       </PrayerItem>
                     ))}
                   </PrayerList>
@@ -2106,7 +2198,9 @@ export default function PrayerDashboard() {
                       {commonPrayers.map((p, i) => (
                         <PrayerItem key={i} $i={i}>
                           <PNum>{i + 1}.</PNum>
-                          <PText>{p}</PText>
+                          <PText>
+                            <MarkdownText text={p} />
+                          </PText>
                         </PrayerItem>
                       ))}
                     </PrayerList>

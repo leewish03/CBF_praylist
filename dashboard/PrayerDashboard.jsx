@@ -611,9 +611,18 @@ const MarkdownContainer = styled.div`
   width: 100%;
 `;
 
+const HeaderLine = styled.div`
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: ${c.primary};
+  margin-top: 4px;
+  margin-bottom: 6px;
+  line-height: 1.45;
+`;
+
 const NormalLine = styled.div`
   line-height: 1.65;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: ${c.textPrimary};
 `;
 
@@ -623,7 +632,7 @@ const BulletItem = styled.div`
   gap: 6px;
   padding-left: 14px;
   line-height: 1.6;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: ${c.textSecondary};
   margin-top: 2px;
   margin-bottom: 2px;
@@ -631,7 +640,7 @@ const BulletItem = styled.div`
   .bullet {
     color: ${c.primary};
     font-size: 0.9rem;
-    line-height: 1.2;
+    line-height: 1.25;
     user-select: none;
   }
 
@@ -643,20 +652,21 @@ const BulletItem = styled.div`
 function MarkdownText({ text }) {
   if (!text) return null;
 
-  // 줄바꿈으로 라인 분리
-  const lines = text.split('\n');
+  // \r 문자 제거 후 줄바꿈으로 라인 분리
+  const lines = text.replace(/\r/g, '').split('\n');
 
   return (
     <MarkdownContainer>
       {lines.map((line, idx) => {
-        // 불릿 목록 형태 파싱 (- 또는 * 또는 + 로 시작)
-        const bulletRegex = /^\s*[-*+]\s+(.*)$/;
-        const match = line.match(bulletRegex);
+        const trimmed = line.trim();
+        if (!trimmed) {
+          // 빈 줄
+          return <div key={idx} style={{ height: '4px' }} />;
+        }
 
         // 인라인 스타일 (bold 등) 파싱용 함수
         const renderInline = (str) => {
           if (!str) return '';
-          // **bold** 형태 파싱
           const parts = str.split(/(\*\*.*?\*\*)/g);
           return parts.map((part, pIdx) => {
             if (part.startsWith('**') && part.endsWith('**')) {
@@ -666,26 +676,39 @@ function MarkdownText({ text }) {
           });
         };
 
-        if (match) {
-          const content = match[1];
+        // 1. 헤더 매칭 (##서울CBF 처럼 공백이 없어도 매칭되도록 \s* 사용)
+        const headerRegex = /^\s*(#{1,6})\s*(.*)$/;
+        const headerMatch = line.match(headerRegex);
+
+        if (headerMatch) {
+          const content = headerMatch[2];
+          return (
+            <HeaderLine key={idx}>
+              {renderInline(content)}
+            </HeaderLine>
+          );
+        }
+
+        // 2. 불릿 목록 매칭 (대시, 별표, 플러스 및 모든 특수 하이픈/대시/불릿/NBSP 매칭)
+        const bulletRegex = /^\s*([-\*+–—－•◦▪▫▶])[\s\u00a0]+(.*)$/;
+        const bulletMatch = line.match(bulletRegex);
+
+        if (bulletMatch) {
+          const content = bulletMatch[2];
           return (
             <BulletItem key={idx}>
               <span className="bullet">•</span>
               <span className="content">{renderInline(content)}</span>
             </BulletItem>
           );
-        } else {
-          const trimmed = line.trim();
-          if (!trimmed) {
-            // 빈 줄
-            return <div key={idx} style={{ height: '4px' }} />;
-          }
-          return (
-            <NormalLine key={idx}>
-              {renderInline(line)}
-            </NormalLine>
-          );
         }
+
+        // 3. 일반 줄
+        return (
+          <NormalLine key={idx}>
+            {renderInline(line)}
+          </NormalLine>
+        );
       })}
     </MarkdownContainer>
   );

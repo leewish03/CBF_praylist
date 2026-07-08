@@ -8,9 +8,9 @@ services:
     envVars:
       # Google Sheets 설정
       - key: SPREADSHEET_ID
-        value: 1Bvl8bKvXQezJA3diKZM3sd_WauWSEG7jjjh7w3e74VI
+        value: 1gYaj_juZ2TBU-aXOOwiHkl5N0vrF1CeaNLE29aftvlg
       - key: RESPONSES_SPREADSHEET_ID
-        value: 1pfntXb8KM5ONJTVbLDi02e5X0SvFiKqFZTYQh6gQP9U
+        value: 1gYaj_juZ2TBU-aXOOwiHkl5N0vrF1CeaNLE29aftvlg
       - key: RANGE_NAME
         value: "'설문지 응답 시트1'!A:Z"
       - key: SERVICE_ACCOUNT_FILE

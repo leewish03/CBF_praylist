@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 NOTION_TOKEN = os.getenv('NOTION_TOKEN')
 PAGE_ID = os.getenv('NOTION_PAGE_ID', '1c50f7e0cd5f8025bb78c5c839f205f0')
-SPREADSHEET_ID = os.getenv('SPREADSHEET_ID', '1Bvl8bKvXQezJA3diKZM3sd_WauWSEG7jjjh7w3e74VI')
+SPREADSHEET_ID = os.getenv('SPREADSHEET_ID', '1gYaj_juZ2TBU-aXOOwiHkl5N0vrF1CeaNLE29aftvlg')
 SHEET_RANGE = "'설문지 응답 시트1'!A:Z"
 
 # ============================================================

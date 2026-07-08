@@ -21,7 +21,7 @@ load_dotenv()
 # ============================================================
 # 설정
 # ============================================================
-SPREADSHEET_ID = os.getenv('SPREADSHEET_ID', '1Bvl8bKvXQezJA3diKZM3sd_WauWSEG7jjjh7w3e74VI')
+SPREADSHEET_ID = os.getenv('SPREADSHEET_ID', '1gYaj_juZ2TBU-aXOOwiHkl5N0vrF1CeaNLE29aftvlg')
 SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', 'cbf-praylist-11bbf27f1baa.json')
 
 # Google Sheets API 권한 범위 (읽기 + 쓰기)

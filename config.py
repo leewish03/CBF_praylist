@@ -24,8 +24,8 @@ class GoogleSheetsConfig:
     def from_env(cls):
         return cls(
             # 신규 스프레드시트 ID를 기본값으로 설정
-            spreadsheet_id=os.getenv('SPREADSHEET_ID', '1Bvl8bKvXQezJA3diKZM3sd_WauWSEG7jjjh7w3e74VI'),
-            responses_spreadsheet_id=os.getenv('RESPONSES_SPREADSHEET_ID', '1pfntXb8KM5ONJTVbLDi02e5X0SvFiKqFZTYQh6gQP9U'),
+            spreadsheet_id=os.getenv('SPREADSHEET_ID', '1gYaj_juZ2TBU-aXOOwiHkl5N0vrF1CeaNLE29aftvlg'),
+            responses_spreadsheet_id=os.getenv('RESPONSES_SPREADSHEET_ID', '1gYaj_juZ2TBU-aXOOwiHkl5N0vrF1CeaNLE29aftvlg'),
             range_name=os.getenv('RANGE_NAME', "'설문지 응답 시트1'!A:Z"),
             service_account_file=os.getenv('SERVICE_ACCOUNT_FILE', 'cbf-praylist-11bbf27f1baa.json')
         )

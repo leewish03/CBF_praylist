@@ -26,15 +26,46 @@ def process_prayer_requests(df):
         except Exception as e:
             print(f"타임스탬프 파싱 오류: {e} - 입력값: {ts}")
             return pd.NaT
-    
+            
+    # ── 컬럼 매핑 표준화 (KeyError 원천 차단) ──
+    col_mapping = {}
+    for col in df.columns:
+        col_str = str(col).strip()
+        if '타임스탬프' in col_str:
+            col_mapping['timestamp'] = col
+        elif col_str == '이름':
+            col_mapping['name'] = col
+        elif '구도자' in col_str:
+            col_mapping['target_name'] = col
+        elif '성별' in col_str:
+            col_mapping['gender'] = col
+        elif '나이' in col_str:
+            col_mapping['age'] = col
+        elif '관계' in col_str:
+            col_mapping['relationship'] = col
+        elif '기도제목' in col_str:
+            col_mapping['prayer_content'] = col
+        elif '교회' in col_str:
+            col_mapping['church'] = col
+
     # 타임스탬프 변환
-    df['타임스탬프'] = df['타임스탬프'].apply(parse_korean_timestamp)
+    ts_col = col_mapping.get('timestamp', '타임스탬프')
+    if ts_col in df.columns:
+        df[ts_col] = df[ts_col].apply(parse_korean_timestamp)
     
     # 이름 정제 (공백 제거)
-    df['이름'] = df['이름'].apply(lambda x: sanitize_name(str(x)) if pd.notna(x) else '')
+    name_col = col_mapping.get('name', '이름')
+    if name_col in df.columns:
+        df[name_col] = df[name_col].apply(lambda x: sanitize_name(str(x)) if pd.notna(x) else '')
+    else:
+        # 방어 코드: '이름' 컬럼이 없으면 빈 구조체 반환
+        return {
+            'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
+            'prayers_by_requester': {}
+        }
     
     # 작성자(이름)별로 그룹화
-    grouped_prayers = df.groupby('이름')
+    grouped_prayers = df.groupby(name_col)
     
     # 노션 페이지에 맞는 형식으로 데이터 변환
     processed_data = {
@@ -42,18 +73,26 @@ def process_prayer_requests(df):
         'prayers_by_requester': {}
     }
     
+    # 안전하게 행 값을 꺼내오는 헬퍼 함수
+    def get_val(row, key, default=''):
+        col_name = col_mapping.get(key)
+        if col_name and col_name in row:
+            val = row[col_name]
+            return str(val) if pd.notna(val) else default
+        return default
+    
     for requester, group in grouped_prayers:
         prayers = []
         for _, row in group.iterrows():
             # 기본 데이터 구성 - 필드별로 적절한 정제 함수 사용
             prayer = {
                 'name': sanitize_name(str(requester)),  # 제출자 이름 정제
-                'target_name': sanitize_name(str(row['이름(구도자)'])) if pd.notna(row['이름(구도자)']) else '',
-                'gender': sanitize_text(str(row['성별'])) if pd.notna(row['성별']) else '',
-                'age': sanitize_text(str(row['나이 (출생연도로 기입 부탁드립니다 ex. 98년생)'])) if pd.notna(row['나이 (출생연도로 기입 부탁드립니다 ex. 98년생)']) else '',
-                'relationship': sanitize_text(str(row['관계 (ex 사촌동생, 학교 친구, 직장 동료, 본인)'])) if pd.notna(row['관계 (ex 사촌동생, 학교 친구, 직장 동료, 본인)']) else '',
-                'prayer_content': sanitize_prayer_content(str(row['구체적인 기도제목 (가능한 경우 1. 2. 등 번호로 기입)'])) if pd.notna(row['구체적인 기도제목 (가능한 경우 1. 2. 등 번호로 기입)']) else '',
-                'church': sanitize_text(str(row['교회'])) if pd.notna(row['교회']) else ''
+                'target_name': sanitize_name(get_val(row, 'target_name')),
+                'gender': sanitize_text(get_val(row, 'gender')),
+                'age': sanitize_text(get_val(row, 'age')),
+                'relationship': sanitize_text(get_val(row, 'relationship')),
+                'prayer_content': sanitize_prayer_content(get_val(row, 'prayer_content')),
+                'church': sanitize_text(get_val(row, 'church'))
             }
             
             prayers.append(prayer)

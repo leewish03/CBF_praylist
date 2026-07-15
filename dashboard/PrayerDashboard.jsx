@@ -543,6 +543,26 @@ const CardBody = styled.div`
   padding: 18px;
 `;
 
+const ScrollableCardBody = styled(CardBody)`
+  max-height: 480px;
+  overflow-y: auto;
+  
+  /* 스크롤바 디자인 슬림화 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: ${c.border};
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: ${c.primary};
+  }
+`;
+
 const SourceTag = styled.span`
   margin-left: auto;
   padding: 2px 8px;
@@ -2242,7 +2262,7 @@ export default function PrayerDashboard() {
                     </SourceTag>
                   )}
                 </CardHead>
-                <CardBody style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <ScrollableCardBody style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                   
                   {/* 미배정 사용자 할당 필요 경고 섹션 */}
                   {(() => {
@@ -2349,7 +2369,7 @@ export default function PrayerDashboard() {
                       </button>
                     </div>
                   )}
-                </CardBody>
+                </ScrollableCardBody>
 
                 {/* 하단 푸터 저장 제어바 */}
                 <ActionFooter>

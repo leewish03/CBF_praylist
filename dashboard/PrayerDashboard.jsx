@@ -836,6 +836,14 @@ const Tags = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  min-height: 32px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px dashed ${({ $isDragOver }) => $isDragOver ? c.primary : 'transparent'};
+  background: ${({ $isDragOver }) => $isDragOver ? c.primaryLight : 'transparent'};
+  transition: all 0.2s ease;
+  align-items: center;
+  flex-grow: 1;
 `;
 
 const Tag = styled.span`
@@ -847,6 +855,18 @@ const Tag = styled.span`
   font-size: 0.73rem;
   font-weight: 500;
   transition: all 0.2s ease;
+  cursor: grab;
+  user-select: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &.dragging {
+    opacity: 0.4;
+    transform: scale(0.95) rotate(-2deg);
+    border-style: dashed;
+  }
 `;
 
 // ─────────────────────────────────────────────
@@ -1109,12 +1129,13 @@ const MiniButton = styled.button`
 `;
 
 const UnmappedSection = styled.div`
-  background: ${c.dangerLight}66;
-  border: 1px solid ${c.danger}22;
+  background: ${({ $isDragOver }) => $isDragOver ? c.dangerLight : `${c.dangerLight}66`};
+  border: 1px dashed ${({ $isDragOver }) => $isDragOver ? c.danger : `${c.danger}22`};
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 16px;
   animation: ${fadeIn} 0.3s ease;
+  transition: all 0.2s ease;
 `;
 
 const UnmappedTitle = styled.h4`
@@ -1715,6 +1736,11 @@ export default function PrayerDashboard() {
     try { localStorage.setItem(LS_MANAGER_KEY, name); } catch {}
   }
 
+  // ── 드래그 앤 드롭 상태 ──
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverManager, setDragOverManager] = useState(null);
+  const [isDragOverUnmapped, setIsDragOverUnmapped] = useState(false);
+
   // ── 데이터 상태 ──
   const [status,       setStatus]      = useState(null);
   const [prayersData,  setPrayersData] = useState(null);
@@ -1937,6 +1963,70 @@ export default function PrayerDashboard() {
     const originalList = configData.assignments.data[manager] || [];
     return !originalList.includes(name);
   }, [configData]);
+
+  // ── 드래그 시작 ──
+  const handleDragStart = useCallback((e, from, name) => {
+    setDraggedItem({ from, name });
+    if (e.target && e.target.classList) {
+      setTimeout(() => e.target.classList.add('dragging'), 0);
+    }
+  }, []);
+
+  // ── 드래그 종료 ──
+  const handleDragEnd = useCallback((e) => {
+    setDraggedItem(null);
+    setDragOverManager(null);
+    setIsDragOverUnmapped(false);
+    if (e.target && e.target.classList) {
+      e.target.classList.remove('dragging');
+    }
+  }, []);
+
+  // ── 담당자 영역으로 드롭 ──
+  const handleDropToManager = useCallback((mgr) => {
+    if (!draggedItem) return;
+    const { from, name } = draggedItem;
+    if (from === mgr) return;
+
+    setEditingAssignments(prev => {
+      const copy = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        copy[k] = [...v];
+      });
+      if (from !== 'unmapped') {
+        copy[from] = (copy[from] || []).filter(n => n !== name);
+      }
+      if (!copy[mgr]) copy[mgr] = [];
+      if (!copy[mgr].includes(name)) {
+        copy[mgr].push(name);
+      }
+      return copy;
+    });
+
+    if (from === 'unmapped') {
+      setUnmappedSelections(prev => {
+        const copy = { ...prev };
+        delete copy[name];
+        return copy;
+      });
+    }
+  }, [draggedItem]);
+
+  // ── 미배정 리스트 영역으로 드롭 (배정 해제) ──
+  const handleDropToUnmapped = useCallback(() => {
+    if (!draggedItem) return;
+    const { from, name } = draggedItem;
+    if (from === 'unmapped') return;
+
+    setEditingAssignments(prev => {
+      const copy = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        copy[k] = [...v];
+      });
+      copy[from] = (copy[from] || []).filter(n => n !== name);
+      return copy;
+    });
+  }, [draggedItem]);
 
   const handleSaveAssignments = useCallback(async () => {
     if (isSaving) return;
@@ -2379,11 +2469,31 @@ export default function PrayerDashboard() {
                     if (actualUnmapped.length === 0) return null;
                     const managers = Object.keys(editingAssignments || {});
                     return (
-                      <UnmappedSection>
-                        <UnmappedTitle>⚠️ 담당자 미지정 사용자 할당 필요 ({actualUnmapped.length}명)</UnmappedTitle>
+                      <UnmappedSection
+                        $isDragOver={isDragOverUnmapped}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (draggedItem && draggedItem.from !== 'unmapped') {
+                            setIsDragOverUnmapped(true);
+                          }
+                        }}
+                        onDragLeave={() => setIsDragOverUnmapped(false)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          handleDropToUnmapped();
+                          setIsDragOverUnmapped(false);
+                        }}
+                      >
+                        <UnmappedTitle>⚠️ 담당자 미지정 사용자 할당 필요 ({actualUnmapped.length}명) - 드래그하여 배정하거나 여기로 던져 배정해제</UnmappedTitle>
                         <UnmappedGrid>
                           {actualUnmapped.map(req => (
-                            <UnmappedRow key={req}>
+                            <UnmappedRow 
+                              key={req}
+                              draggable="true"
+                              onDragStart={(e) => handleDragStart(e, 'unmapped', req)}
+                              onDragEnd={handleDragEnd}
+                              style={{ cursor: 'grab' }}
+                            >
                               <UnmappedName>{req}</UnmappedName>
                               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                                 <SelectBox
@@ -2424,12 +2534,32 @@ export default function PrayerDashboard() {
                           <ManagerName onClick={() => setSelectedManager(mgr)}>
                             {mgr}
                           </ManagerName>
-                          <Tags>
+                          <Tags
+                            $isDragOver={dragOverManager === mgr}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              if (draggedItem && draggedItem.from !== mgr) {
+                                setDragOverManager(mgr);
+                              }
+                            }}
+                            onDragLeave={() => setDragOverManager(null)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              handleDropToManager(mgr);
+                              setDragOverManager(null);
+                            }}
+                          >
                             {assignees.length > 0 ? (
                               assignees.map(a => {
                                 const isNew = isAssigneeAdded(mgr, a);
                                 return (
-                                  <Tag key={a} $isNew={isNew}>
+                                  <Tag 
+                                    key={a} 
+                                    $isNew={isNew}
+                                    draggable="true"
+                                    onDragStart={(e) => handleDragStart(e, mgr, a)}
+                                    onDragEnd={handleDragEnd}
+                                  >
                                     {a}
                                     {isNew && (
                                       <span 

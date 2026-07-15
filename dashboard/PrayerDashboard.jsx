@@ -1775,19 +1775,7 @@ export default function PrayerDashboard() {
     }
   }, [isAdmin, navigate]);
 
-  // ── 변경사항 미저장 시 이탈 방지 경고 (Dirty Guard) ──
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (hasChanges()) {
-        const msg = '저장하지 않은 변경사항이 있습니다. 정말 나가시겠습니까?';
-        e.preventDefault();
-        e.returnValue = msg;
-        return msg;
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasChanges]);
+
 
   // ─────────────────── 인증 만료 및 API 래퍼 ───────────────────
   const handleAuthExpiration = useCallback(() => {
@@ -1988,8 +1976,19 @@ export default function PrayerDashboard() {
     setToast(null);
   }, [configData]);
 
-
-
+  // ── 변경사항 미저장 시 이탈 방지 경고 (Dirty Guard) ──
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasChanges()) {
+        const msg = '저장하지 않은 변경사항이 있습니다. 정말 나가시겠습니까?';
+        e.preventDefault();
+        e.returnValue = msg;
+        return msg;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasChanges]);
 
 
   // 파이프라인 트리거

@@ -544,7 +544,8 @@ const CardBody = styled.div`
 `;
 
 const ScrollableCardBody = styled(CardBody)`
-  max-height: 480px;
+  max-height: calc(100vh - 350px);
+  min-height: 320px;
   overflow-y: auto;
   
   /* 스크롤바 디자인 슬림화 */
@@ -562,6 +563,77 @@ const ScrollableCardBody = styled(CardBody)`
     background: ${c.primary};
   }
 `;
+
+// 전체 화면 로딩 가드 오버레이
+const LoadingOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: ${fadeIn} 0.25s ease;
+`;
+
+const LoadingCard = styled.div`
+  background: ${c.cardBg};
+  border: 1px solid ${c.border};
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 320px;
+  text-align: center;
+
+  p {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: ${c.primary};
+  }
+
+  span {
+    font-size: 0.72rem;
+    color: ${c.textSecondary};
+  }
+`;
+
+// 플로팅 토스트
+const toastSlideIn = keyframes`
+  from { transform: translateY(100%) scale(0.9); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+`;
+
+const ToastPortal = styled.div`
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10000;
+  pointer-events: none;
+`;
+
+const FloatingToast = styled.div`
+  pointer-events: auto;
+  min-width: 320px;
+  max-width: 450px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: ${({ type }) => type === 'success' ? '#f0fdf4' : type === 'warn' ? '#fffbeb' : '#fef2f2'};
+  border: 1px solid ${({ type }) => type === 'success' ? '#bbf7d0' : type === 'warn' ? '#fef3c7' : '#fecaca'};
+  color: ${({ type }) => type === 'success' ? '#166534' : type === 'warn' ? '#b45309' : '#991b1b'};
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: ${toastSlideIn} 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+`;
+
 
 const SourceTag = styled.span`
   margin-left: auto;
@@ -768,12 +840,13 @@ const Tags = styled.div`
 
 const Tag = styled.span`
   padding: 2px 8px;
-  background: ${c.primaryLight};
-  color: ${c.primaryDark};
-  border: 1px solid ${c.border};
+  background: ${({ $isNew }) => $isNew ? c.successLight : c.primaryLight};
+  color: ${({ $isNew }) => $isNew ? '#166534' : c.primaryDark};
+  border: 1px solid ${({ $isNew }) => $isNew ? c.success + '44' : c.border};
   border-radius: 12px;
   font-size: 0.73rem;
   font-weight: 500;
+  transition: all 0.2s ease;
 `;
 
 // ─────────────────────────────────────────────
@@ -1594,9 +1667,13 @@ export default function PrayerDashboard() {
   );
   const isAdmin = currentPath.includes('/admin');
 
-  // ── 인증 상태 (메모리 상태 보관 -> 새로고침 시 즉시 초기화되어 재로그인 요구) ──
-  const [token, setToken] = useState(null);
-  const [role, setRole] = useState(null);
+  // ── 인증 상태 (sessionStorage를 연동해 새로고침 시 자동 세션 유지) ──
+  const [token, setToken] = useState(
+    typeof window !== 'undefined' ? (sessionStorage.getItem(SESSION_TOKEN_KEY) || null) : null
+  );
+  const [role, setRole] = useState(
+    typeof window !== 'undefined' ? (sessionStorage.getItem(SESSION_ROLE_KEY) || null) : null
+  );
 
   const isUserAuth = !!token && (role === 'ROLE_USER' || role === 'ROLE_ADMIN');
   const isAdminAuth = !!token && role === 'ROLE_ADMIN';
@@ -1683,6 +1760,35 @@ export default function PrayerDashboard() {
     }
   }, [toast]);
 
+  // ── 로그인 성공 시 처리 (세션 저장 포함) ──
+  const handleLoginSuccess = useCallback((tok, rol) => {
+    setToken(tok);
+    setRole(rol);
+    try {
+      sessionStorage.setItem(SESSION_TOKEN_KEY, tok);
+      sessionStorage.setItem(SESSION_ROLE_KEY, rol);
+    } catch (e) {
+      console.error('[Dashboard] 세션 토큰 저장 실패:', e);
+    }
+    if (rol === 'ROLE_ADMIN' && !isAdmin) {
+      navigate('/admin');
+    }
+  }, [isAdmin, navigate]);
+
+  // ── 변경사항 미저장 시 이탈 방지 경고 (Dirty Guard) ──
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasChanges()) {
+        const msg = '저장하지 않은 변경사항이 있습니다. 정말 나가시겠습니까?';
+        e.preventDefault();
+        e.returnValue = msg;
+        return msg;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasChanges]);
+
   // ─────────────────── 인증 만료 및 API 래퍼 ───────────────────
   const handleAuthExpiration = useCallback(() => {
     setToken(null);
@@ -1690,6 +1796,10 @@ export default function PrayerDashboard() {
     setPrayersData(null);
     setConfigData(null);
     setLogs([]);
+    try {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+      sessionStorage.removeItem(SESSION_ROLE_KEY);
+    } catch (e) {}
     console.warn('[Dashboard] 세션 만료로 데이터 소거 및 로그인 화면 전환');
   }, []);
 
@@ -1832,6 +1942,13 @@ export default function PrayerDashboard() {
     }
     return false;
   }, [configData, editingAssignments]);
+
+  // ── 특정 담당자의 제출자가 신규 추가되었는지 여부 확인 (시각적 마킹용) ──
+  const isAssigneeAdded = useCallback((manager, name) => {
+    if (!configData?.assignments?.data) return false;
+    const originalList = configData.assignments.data[manager] || [];
+    return !originalList.includes(name);
+  }, [configData]);
 
   const handleSaveAssignments = useCallback(async () => {
     if (isSaving) return;
@@ -1990,10 +2107,7 @@ export default function PrayerDashboard() {
           title="관리자 인증"
           subtitle="관리자 비밀번호를 입력하세요"
           adminMode
-          onSuccess={(tok, rol) => {
-            setToken(tok);
-            setRole(rol);
-          }}
+          onSuccess={handleLoginSuccess}
         />
       )}
 
@@ -2002,13 +2116,7 @@ export default function PrayerDashboard() {
         <PinOverlay
           title="CBF 기도제목 대시보드"
           subtitle="비밀번호 4자리를 입력하세요"
-          onSuccess={(tok, rol) => {
-            setToken(tok);
-            setRole(rol);
-            if (rol === 'ROLE_ADMIN') {
-              navigate('/admin');
-            }
-          }}
+          onSuccess={handleLoginSuccess}
         />
       )}
 
@@ -2319,18 +2427,34 @@ export default function PrayerDashboard() {
                           </ManagerName>
                           <Tags>
                             {assignees.length > 0 ? (
-                              assignees.map(a => (
-                                <Tag key={a}>
-                                  {a}
-                                  <DeleteTagBtn 
-                                    type="button" 
-                                    onClick={() => handleDeleteAssignee(mgr, a)}
-                                    title="삭제"
-                                  >
-                                    ✕
-                                  </DeleteTagBtn>
-                                </Tag>
-                              ))
+                              assignees.map(a => {
+                                const isNew = isAssigneeAdded(mgr, a);
+                                return (
+                                  <Tag key={a} $isNew={isNew}>
+                                    {a}
+                                    {isNew && (
+                                      <span 
+                                        style={{ 
+                                          color: '#166534', 
+                                          marginLeft: 4, 
+                                          fontSize: '0.62rem', 
+                                          verticalAlign: 'middle' 
+                                        }}
+                                        title="신규 할당됨 (구글 시트 미저장)"
+                                      >
+                                        ●
+                                      </span>
+                                    )}
+                                    <DeleteTagBtn 
+                                      type="button" 
+                                      onClick={() => handleDeleteAssignee(mgr, a)}
+                                      title="삭제"
+                                    >
+                                      ✕
+                                    </DeleteTagBtn>
+                                  </Tag>
+                                );
+                              })
                             ) : (
                               <span style={{ fontSize: '0.75rem', color: c.textMuted, fontStyle: 'italic', paddingLeft: '4px' }}>
                                 제출자 없음
@@ -2451,6 +2575,27 @@ export default function PrayerDashboard() {
               </ConsoleBody>
             </ConsoleWrap>
           </TabsContent>
+        )}
+
+        {/* ── 전체 화면 차단 로딩 오버레이 ── */}
+        {(isSaving || triggering) && (
+          <LoadingOverlay>
+            <LoadingCard>
+              <Spinner style={{ width: 32, height: 32, borderWidth: 4, borderColor: `${c.primary} transparent ${c.primary} transparent` }} />
+              <p>{isSaving ? '구글 시트에 설정을 저장하고 있습니다...' : '기도제목 자동화 파이프라인 동기화 중...'}</p>
+              <span>이 작업은 최대 10초까지 소요될 수 있습니다. 잠시만 기다려 주세요.</span>
+            </LoadingCard>
+          </LoadingOverlay>
+        )}
+
+        {/* ── 플로팅 토스트 메시지 ── */}
+        {toast && (
+          <ToastPortal>
+            <FloatingToast type={toast.type}>
+              <span>{toast.type === 'success' ? '✅' : toast.type === 'warn' ? '⚠️' : '❌'}</span>
+              <span style={{ marginLeft: 6 }}>{toast.text}</span>
+            </FloatingToast>
+          </ToastPortal>
         )}
 
         </Wrapper>
